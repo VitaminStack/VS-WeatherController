@@ -1060,7 +1060,7 @@ namespace WeatherController
         private class GuiDialogWeatherControllerHelp : GuiDialogGeneric
         {
             private const double ContentWidth = 520;
-            private const double ContentHeight = 460;
+            private const double ContentHeight = 540;
             private const double ContentPadding = 16;
 
             private static readonly string HelpText = string.Join("<br><br>", new[]
