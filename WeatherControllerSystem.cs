@@ -6,9 +6,10 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
+using WeatherSimFunc = System.Func<Vintagestory.GameContent.WeatherSimulationRegion, bool>;
+
 namespace WeatherController
 {
-    [ModInfo("Weather Controller", "weathercontroller", Version = "1.0.0", Description = "In-game weather management tools.")]
     public class WeatherControllerSystem : ModSystem
     {
         internal const string ChannelCode = "weathercontroller";
@@ -239,7 +240,7 @@ namespace WeatherController
             SendOptionsToPlayer(fromPlayer, forceReload, message);
         }
 
-        private bool TryWithRegion(IServerPlayer player, WeatherSystemServer weather, Func<WeatherSimulationRegion, bool> operation, out string message, string successMessage, string missingMessage)
+        private bool TryWithRegion(IServerPlayer player, WeatherSystemServer weather, WeatherSimFunc operation, out string message, string successMessage, string missingMessage)
         {
             WeatherSimulationRegion region = GetRegionSimulation(player, weather);
             if (region == null)
@@ -258,7 +259,7 @@ namespace WeatherController
             return false;
         }
 
-        private bool ApplyToAllRegions(WeatherSystemServer weather, Func<WeatherSimulationRegion, bool> apply)
+        private bool ApplyToAllRegions(WeatherSystemServer weather, WeatherSimFunc apply)
         {
             bool hasRegions = false;
             bool allSuccess = true;
