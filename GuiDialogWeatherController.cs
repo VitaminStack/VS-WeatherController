@@ -93,72 +93,129 @@ namespace WeatherController
 
         private void ComposeDialog()
         {
-            ElementBounds contentBounds = ElementBounds.Fixed(0, 0, 450, 360);
+            EnsureDialogTheme();
+
+            const double sectionWidth = 440;
+            const double sectionPadding = 12;
+            const double sectionSpacing = 12;
+            const double rowSpacing = 8;
+            const double controlHeight = 32;
+            const double buttonHeight = 28;
+            const double switchHeight = 26;
+            const double actionWidth = 120;
+
+            double currentY = 0;
+
+            ElementBounds contentBounds = ElementBounds.Fixed(0, 0, sectionWidth, 0);
             contentBounds.BothSizing = ElementSizing.Fixed;
 
-            ElementBounds backgroundBounds = ElementStdBounds.DialogBackground().WithFixedPadding(GuiStyle.ElementToDialogPadding, GuiStyle.ElementToDialogPadding);
+            ElementBounds backgroundBounds = ElementStdBounds.DialogBackground()
+                .WithFixedPadding(GuiStyle.ElementToDialogPadding, GuiStyle.ElementToDialogPadding);
             backgroundBounds.WithChild(contentBounds);
 
-            ElementBounds patternLabel = ElementBounds.Fixed(0, 0, 200, 20);
-            ElementBounds patternDrop = ElementBounds.Fixed(0, 22, 220, 30);
-            ElementBounds patternRegionBtn = ElementBounds.Fixed(230, 22, 100, 30);
-            ElementBounds patternGlobalBtn = ElementBounds.Fixed(340, 22, 100, 30);
+            // Weather pattern section
+            double patternHeight = sectionPadding * 2 + 20 + rowSpacing + controlHeight + rowSpacing + buttonHeight;
+            ElementBounds patternSection = ElementBounds.Fixed(0, currentY, sectionWidth, patternHeight);
+            currentY += patternHeight + sectionSpacing;
 
-            ElementBounds eventLabel = ElementBounds.Fixed(0, 70, 200, 20);
-            ElementBounds eventDrop = ElementBounds.Fixed(0, 92, 220, 30);
-            ElementBounds eventRegionBtn = ElementBounds.Fixed(230, 92, 100, 30);
-            ElementBounds eventGlobalBtn = ElementBounds.Fixed(340, 92, 100, 30);
-            ElementBounds allowStopLabel = ElementBounds.Fixed(0, 132, 220, 20);
-            ElementBounds allowStopSwitch = ElementBounds.Fixed(230, 128, 30, 30);
+            ElementBounds patternLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, 20);
+            double patternDropWidth = sectionWidth - (2 * sectionPadding) - actionWidth - rowSpacing;
+            ElementBounds patternDrop = ElementBounds.Fixed(sectionPadding, patternLabel.fixedY + patternLabel.fixedHeight + rowSpacing, patternDropWidth, controlHeight);
+            ElementBounds patternRegionBtn = ElementBounds.Fixed(patternDrop.fixedX + patternDropWidth + rowSpacing, patternDrop.fixedY, actionWidth, buttonHeight);
+            ElementBounds patternGlobalBtn = ElementBounds.Fixed(patternRegionBtn.fixedX, patternRegionBtn.fixedY + buttonHeight + 4, actionWidth, buttonHeight);
+            patternSection.WithChildren(patternLabel, patternDrop, patternRegionBtn, patternGlobalBtn);
 
-            ElementBounds windLabel = ElementBounds.Fixed(0, 170, 200, 20);
-            ElementBounds windDrop = ElementBounds.Fixed(0, 192, 220, 30);
-            ElementBounds windApplyBtn = ElementBounds.Fixed(230, 192, 100, 30);
+            // Weather event section
+            double eventHeight = sectionPadding * 2 + 20 + rowSpacing + switchHeight + rowSpacing + controlHeight + rowSpacing + buttonHeight;
+            ElementBounds eventSection = ElementBounds.Fixed(0, currentY, sectionWidth, eventHeight);
+            currentY += eventHeight + sectionSpacing;
 
-            ElementBounds stormLabel = ElementBounds.Fixed(0, 230, 220, 20);
-            ElementBounds stormDrop = ElementBounds.Fixed(0, 252, 220, 30);
-            ElementBounds stormApplyBtn = ElementBounds.Fixed(230, 252, 100, 30);
+            ElementBounds eventLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, 20);
+            ElementBounds allowStopLabel = ElementBounds.Fixed(sectionPadding, eventLabel.fixedY + eventLabel.fixedHeight + rowSpacing, sectionWidth - 2 * sectionPadding - (switchHeight + 6), switchHeight);
+            ElementBounds allowStopSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - switchHeight - 6, allowStopLabel.fixedY - 1, switchHeight + 6, switchHeight + 4);
+            double eventDropWidth = patternDropWidth;
+            ElementBounds eventDrop = ElementBounds.Fixed(sectionPadding, allowStopLabel.fixedY + allowStopLabel.fixedHeight + rowSpacing, eventDropWidth, controlHeight);
+            ElementBounds eventRegionBtn = ElementBounds.Fixed(eventDrop.fixedX + eventDropWidth + rowSpacing, eventDrop.fixedY, actionWidth, buttonHeight);
+            ElementBounds eventGlobalBtn = ElementBounds.Fixed(eventRegionBtn.fixedX, eventRegionBtn.fixedY + buttonHeight + 4, actionWidth, buttonHeight);
+            eventSection.WithChildren(eventLabel, allowStopLabel, allowStopSwitch, eventDrop, eventRegionBtn, eventGlobalBtn);
 
-            ElementBounds autoLabel = ElementBounds.Fixed(0, 292, 200, 20);
-            ElementBounds autoSwitch = ElementBounds.Fixed(210, 288, 30, 30);
-            ElementBounds autoApplyBtn = ElementBounds.Fixed(250, 288, 100, 30);
+            // Wind section
+            double windHeight = sectionPadding * 2 + 20 + rowSpacing + controlHeight;
+            ElementBounds windSection = ElementBounds.Fixed(0, currentY, sectionWidth, windHeight);
+            currentY += windHeight + sectionSpacing;
 
-            ElementBounds precipLabel = ElementBounds.Fixed(0, 328, 220, 20);
-            ElementBounds precipSlider = ElementBounds.Fixed(0, 350, 220, 30);
-            ElementBounds precipApplyBtn = ElementBounds.Fixed(230, 350, 100, 30);
-            ElementBounds precipResetBtn = ElementBounds.Fixed(340, 350, 100, 30);
+            ElementBounds windLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, 20);
+            ElementBounds windDrop = ElementBounds.Fixed(sectionPadding, windLabel.fixedY + windLabel.fixedHeight + rowSpacing, patternDropWidth, controlHeight);
+            ElementBounds windApplyBtn = ElementBounds.Fixed(windDrop.fixedX + patternDropWidth + rowSpacing, windDrop.fixedY, actionWidth, buttonHeight);
+            windSection.WithChildren(windLabel, windDrop, windApplyBtn);
 
-            contentBounds.WithChildren(patternLabel, patternDrop, patternRegionBtn, patternGlobalBtn,
-                eventLabel, eventDrop, eventRegionBtn, eventGlobalBtn, allowStopLabel, allowStopSwitch,
-                windLabel, windDrop, windApplyBtn,
-                stormLabel, stormDrop, stormApplyBtn,
-                autoLabel, autoSwitch, autoApplyBtn,
-                precipLabel, precipSlider, precipApplyBtn, precipResetBtn);
+            // Temporal storm section
+            double stormHeight = sectionPadding * 2 + 20 + rowSpacing + controlHeight;
+            ElementBounds stormSection = ElementBounds.Fixed(0, currentY, sectionWidth, stormHeight);
+            currentY += stormHeight + sectionSpacing;
+
+            ElementBounds stormLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, 20);
+            ElementBounds stormDrop = ElementBounds.Fixed(sectionPadding, stormLabel.fixedY + stormLabel.fixedHeight + rowSpacing, patternDropWidth, controlHeight);
+            ElementBounds stormApplyBtn = ElementBounds.Fixed(stormDrop.fixedX + patternDropWidth + rowSpacing, stormDrop.fixedY, actionWidth, buttonHeight);
+            stormSection.WithChildren(stormLabel, stormDrop, stormApplyBtn);
+
+            // Auto-change section
+            double autoHeight = sectionPadding * 2 + 20 + rowSpacing + Math.Max(switchHeight, buttonHeight);
+            ElementBounds autoSection = ElementBounds.Fixed(0, currentY, sectionWidth, autoHeight);
+            currentY += autoHeight + sectionSpacing;
+
+            ElementBounds autoLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, 20);
+            ElementBounds autoSwitch = ElementBounds.Fixed(sectionPadding, autoLabel.fixedY + autoLabel.fixedHeight + rowSpacing, switchHeight + 10, switchHeight + 4);
+            ElementBounds autoApplyBtn = ElementBounds.Fixed(autoSwitch.fixedX + autoSwitch.fixedWidth + rowSpacing, autoSwitch.fixedY - 1, actionWidth, buttonHeight);
+            autoSection.WithChildren(autoLabel, autoSwitch, autoApplyBtn);
+
+            // Precipitation section
+            double precipHeight = sectionPadding * 2 + 20 + rowSpacing + controlHeight + rowSpacing + buttonHeight;
+            ElementBounds precipSection = ElementBounds.Fixed(0, currentY, sectionWidth, precipHeight);
+            currentY += precipHeight;
+
+            ElementBounds precipLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, 20);
+            ElementBounds precipSlider = ElementBounds.Fixed(sectionPadding, precipLabel.fixedY + precipLabel.fixedHeight + rowSpacing, sectionWidth - 2 * sectionPadding, controlHeight);
+            ElementBounds precipApplyBtn = ElementBounds.Fixed(sectionPadding, precipSlider.fixedY + controlHeight + rowSpacing, actionWidth, buttonHeight);
+            ElementBounds precipResetBtn = ElementBounds.Fixed(precipApplyBtn.fixedX + actionWidth + rowSpacing, precipApplyBtn.fixedY, actionWidth, buttonHeight);
+            precipSection.WithChildren(precipLabel, precipSlider, precipApplyBtn, precipResetBtn);
+
+            contentBounds.WithChildren(patternSection, eventSection, windSection, stormSection, autoSection, precipSection);
+            contentBounds.fixedHeight = currentY;
+
+            CairoFont headingFont = CairoFont.WhiteSmallishText();
+            CairoFont bodyFont = CairoFont.WhiteSmallText();
 
             SingleComposer = capi.Gui.CreateCompo("weathercontroller", ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
                 .AddShadedDialogBG(backgroundBounds, true)
                 .AddDialogTitleBar(DialogTitle, OnDialogTitleBarClosed)
                 .BeginChildElements(contentBounds)
-                .AddStaticText("Weather pattern", CairoFont.WhiteSmallText(), patternLabel)
-                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnPatternChanged, patternDrop, CairoFont.WhiteSmallText(), PatternDropKey)
+                .AddInset(patternSection, 6, 0.8f)
+                .AddStaticText("Weather pattern", headingFont, patternLabel)
+                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnPatternChanged, patternDrop, bodyFont, PatternDropKey)
                 .AddSmallButton("Region", OnPatternRegionClicked, patternRegionBtn, EnumButtonStyle.Normal, PatternRegionButtonKey)
                 .AddSmallButton("Global", OnPatternGlobalClicked, patternGlobalBtn, EnumButtonStyle.Normal, PatternGlobalButtonKey)
-                .AddStaticText("Weather event", CairoFont.WhiteSmallText(), eventLabel)
-                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnEventChanged, eventDrop, CairoFont.WhiteSmallText(), EventDropKey)
+                .AddInset(eventSection, 6, 0.8f)
+                .AddStaticText("Weather event", headingFont, eventLabel)
+                .AddStaticText("Allow event to end automatically", bodyFont, allowStopLabel)
+                .AddSwitch(OnAllowStopToggled, allowStopSwitch, AllowStopSwitchKey)
+                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnEventChanged, eventDrop, bodyFont, EventDropKey)
                 .AddSmallButton("Region", OnEventRegionClicked, eventRegionBtn, EnumButtonStyle.Normal, EventRegionButtonKey)
                 .AddSmallButton("Global", OnEventGlobalClicked, eventGlobalBtn, EnumButtonStyle.Normal, EventGlobalButtonKey)
-                .AddStaticText("Allow event to end automatically", CairoFont.WhiteSmallText(), allowStopLabel)
-                .AddSwitch(OnAllowStopToggled, allowStopSwitch, AllowStopSwitchKey)
-                .AddStaticText("Wind pattern", CairoFont.WhiteSmallText(), windLabel)
-                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnWindChanged, windDrop, CairoFont.WhiteSmallText(), WindDropKey)
+                .AddInset(windSection, 6, 0.8f)
+                .AddStaticText("Wind pattern", headingFont, windLabel)
+                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnWindChanged, windDrop, bodyFont, WindDropKey)
                 .AddSmallButton("Apply", OnWindApplyClicked, windApplyBtn, EnumButtonStyle.Normal, WindApplyButtonKey)
-                .AddStaticText("Temporal storms", CairoFont.WhiteSmallText(), stormLabel)
-                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnStormModeChanged, stormDrop, CairoFont.WhiteSmallText(), StormDropKey)
+                .AddInset(stormSection, 6, 0.8f)
+                .AddStaticText("Temporal storms", headingFont, stormLabel)
+                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnStormModeChanged, stormDrop, bodyFont, StormDropKey)
                 .AddSmallButton("Apply", OnStormApplyClicked, stormApplyBtn, EnumButtonStyle.Normal, StormApplyButtonKey)
-                .AddStaticText("Auto-change patterns", CairoFont.WhiteSmallText(), autoLabel)
+                .AddInset(autoSection, 6, 0.8f)
+                .AddStaticText("Auto-change patterns", headingFont, autoLabel)
                 .AddSwitch(OnAutoSwitchToggled, autoSwitch, AutoSwitchKey)
                 .AddSmallButton("Apply", OnAutoApplyClicked, autoApplyBtn, EnumButtonStyle.Normal, AutoApplyButtonKey)
-                .AddStaticText("Precipitation override", CairoFont.WhiteSmallText(), precipLabel)
+                .AddInset(precipSection, 6, 0.8f)
+                .AddStaticText("Precipitation override", headingFont, precipLabel)
                 .AddSlider(OnPrecipSliderChanged, precipSlider, PrecipSliderKey)
                 .AddSmallButton("Apply", OnPrecipApplyClicked, precipApplyBtn, EnumButtonStyle.Normal, PrecipApplyButtonKey)
                 .AddSmallButton("Reset", OnPrecipResetClicked, precipResetBtn, EnumButtonStyle.Normal, PrecipResetButtonKey)
@@ -166,6 +223,42 @@ namespace WeatherController
                 .Compose();
 
             UpdateFromPacket(currentOptions);
+        }
+
+        private void EnsureDialogTheme()
+        {
+            GuiStyle.DialogStrongBgColor = EnsureColorOpacity(GuiStyle.DialogStrongBgColor, 0.85);
+            GuiStyle.DialogDefaultBgColor = EnsureColorOpacity(GuiStyle.DialogDefaultBgColor, 0.65);
+            GuiStyle.DialogHighlightColor = EnsureColorOpacity(GuiStyle.DialogHighlightColor, 0.6);
+        }
+
+        private double[] EnsureColorOpacity(double[] color, double fallbackAlpha)
+        {
+            if (color == null)
+            {
+                return new[] { 0d, 0d, 0d, fallbackAlpha };
+            }
+
+            if (color.Length < 4)
+            {
+                double[] extended = new double[4];
+                int copyLength = Math.Min(color.Length, 3);
+                for (int i = 0; i < copyLength; i++)
+                {
+                    extended[i] = color[i];
+                }
+                extended[3] = fallbackAlpha;
+                return extended;
+            }
+
+            if (color[3] <= 0.001)
+            {
+                double[] copy = (double[])color.Clone();
+                copy[3] = fallbackAlpha;
+                return copy;
+            }
+
+            return color;
         }
 
         private void UpdateFromPacket(WeatherOptionsPacket packet)
