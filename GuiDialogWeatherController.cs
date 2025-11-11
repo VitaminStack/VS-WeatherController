@@ -752,7 +752,7 @@ namespace WeatherController
             var patternLabel = SingleComposer.GetStaticText(PatternCurrentLabelKey);
             if (patternLabel != null)
             {
-                patternLabel.SetNewText($"Current: {FormatCurrentValue(packet.WeatherPatterns, packet.CurrentPatternCode, "None")}");
+                patternLabel.SetValue($"Current: {FormatCurrentValue(packet.WeatherPatterns, packet.CurrentPatternCode, "None")}");
             }
 
             var eventLabel = SingleComposer.GetStaticText(EventCurrentLabelKey);
@@ -765,13 +765,13 @@ namespace WeatherController
                     bool allowStop = packet.CurrentEventAllowStop ?? true;
                     allowStopText = $" (Allow stop: {(allowStop ? "Yes" : "No")})";
                 }
-                eventLabel.SetNewText($"Current: {eventText}{allowStopText}");
+                eventLabel.SetValue($"Current: {eventText}{allowStopText}");
             }
 
             var windLabel = SingleComposer.GetStaticText(WindCurrentLabelKey);
             if (windLabel != null)
             {
-                windLabel.SetNewText($"Current: {FormatCurrentValue(packet.WindPatterns, packet.CurrentWindCode, "None")}");
+                windLabel.SetValue($"Current: {FormatCurrentValue(packet.WindPatterns, packet.CurrentWindCode, "None")}");
             }
 
             var stormLabel = SingleComposer.GetStaticText(StormCurrentLabelKey);
@@ -779,7 +779,7 @@ namespace WeatherController
             {
                 string mode = FormatCurrentValue(packet.TemporalStormModes, packet.CurrentTemporalStormMode, "Off");
                 string status = packet.TemporalStormActive ? "Active" : "Inactive";
-                stormLabel.SetNewText($"Mode: {mode} (Status: {status})");
+                stormLabel.SetValue($"Mode: {mode} (Status: {status})");
             }
         }
 
