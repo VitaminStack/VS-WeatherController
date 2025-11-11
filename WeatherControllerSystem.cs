@@ -190,6 +190,7 @@ namespace WeatherController
                     break;
                 case WeatherControlAction.SetRegionEvent:
                     weather.ReloadConfigs();
+                    bool regionAutoStopDisabled = false;
                     success = TryWithRegion(fromPlayer, weather, sim =>
                     {
                         if (!sim.SetWeatherEvent(command.Code, command.UpdateInstantly))
@@ -198,12 +199,16 @@ namespace WeatherController
                         }
                         if (command.UseAllowStop && sim.CurWeatherEvent != null)
                         {
-                            sim.CurWeatherEvent.AllowStop = command.AllowStop;
+                            regionAutoStopDisabled |= ApplyAllowStopSetting(sim, command);
                         }
                         sim.CurWeatherEvent?.OnBeginUse();
                         sim.TickEvery25ms(0.025f);
                         return true;
                     }, out message, "Weather event applied to this region.", "No weather simulation is active for this region.");
+                    if (success && regionAutoStopDisabled)
+                    {
+                        message = AppendAutoStopDisabledNotice(message);
+                    }
                     if (success && command.UseSelectionLock)
                     {
                         UpdateRegionLockState(fromPlayer, weather, state =>
@@ -223,6 +228,7 @@ namespace WeatherController
                     break;
                 case WeatherControlAction.SetGlobalEvent:
                     weather.ReloadConfigs();
+                    bool globalAutoStopDisabled = false;
                     success = ApplyToAllRegions(weather, sim =>
                     {
                         if (!sim.SetWeatherEvent(command.Code, command.UpdateInstantly))
@@ -231,13 +237,17 @@ namespace WeatherController
                         }
                         if (command.UseAllowStop && sim.CurWeatherEvent != null)
                         {
-                            sim.CurWeatherEvent.AllowStop = command.AllowStop;
+                            globalAutoStopDisabled |= ApplyAllowStopSetting(sim, command);
                         }
                         sim.CurWeatherEvent?.OnBeginUse();
                         sim.TickEvery25ms(0.025f);
                         return true;
                     });
                     message = success ? "Weather event applied to all loaded regions." : "Weather event could not be applied.";
+                    if (success && globalAutoStopDisabled)
+                    {
+                        message = AppendAutoStopDisabledNotice(message);
+                    }
                     if (success && command.UseSelectionLock)
                     {
                         if (command.SelectionLocked && !string.IsNullOrEmpty(command.Code))
@@ -476,6 +486,46 @@ namespace WeatherController
             packet.HasControlPrivilege = hasPrivilege;
 
             serverChannel.SendPacket(packet, player);
+        }
+
+        private bool ApplyAllowStopSetting(WeatherSimulationRegion simulation, WeatherControlCommand command)
+        {
+            if (!command.UseAllowStop || simulation?.CurWeatherEvent == null)
+            {
+                return false;
+            }
+
+            bool allowStop = command.AllowStop;
+            bool autoStopDisabled = false;
+
+            if (allowStop)
+            {
+                ClimateCondition climate = simulation.weatherData?.climateCond;
+                WeatherEventConfig config = simulation.CurWeatherEvent?.config;
+                if (climate != null && config != null)
+                {
+                    float weight = config.getWeight(climate.Rainfall, climate.Temperature);
+                    if (weight <= 0f)
+                    {
+                        allowStop = false;
+                        autoStopDisabled = true;
+                    }
+                }
+            }
+
+            simulation.CurWeatherEvent.AllowStop = allowStop;
+            return autoStopDisabled;
+        }
+
+        private static string AppendAutoStopDisabledNotice(string message)
+        {
+            const string notice = " Automatic stopping was disabled because the current climate would immediately cancel this event.";
+            if (string.IsNullOrEmpty(message))
+            {
+                return notice.TrimStart();
+            }
+
+            return message + notice;
         }
 
         private void OnLockMaintenance(float dt)
