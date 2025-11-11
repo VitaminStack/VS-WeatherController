@@ -62,9 +62,20 @@ namespace WeatherController
                 };
             }
 
-            packet.WeatherPatterns ??= Array.Empty<WeatherOptionEntry>();
-            packet.WeatherEvents ??= Array.Empty<WeatherOptionEntry>();
-            packet.WindPatterns ??= Array.Empty<WeatherOptionEntry>();
+            if (packet.WeatherPatterns == null)
+            {
+                packet.WeatherPatterns = Array.Empty<WeatherOptionEntry>();
+            }
+
+            if (packet.WeatherEvents == null)
+            {
+                packet.WeatherEvents = Array.Empty<WeatherOptionEntry>();
+            }
+
+            if (packet.WindPatterns == null)
+            {
+                packet.WindPatterns = Array.Empty<WeatherOptionEntry>();
+            }
 
             currentOptions = packet;
             UpdateFromPacket(packet);
@@ -111,7 +122,7 @@ namespace WeatherController
 
             SingleComposer = capi.Gui.CreateCompo("weathercontroller", ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
                 .AddShadedDialogBG(backgroundBounds, true)
-                .AddDialogTitleBar(DialogTitle, OnTitleBarClose)
+                .AddDialogTitleBar(DialogTitle, OnDialogTitleBarClosed)
                 .BeginChildElements(contentBounds)
                 .AddStaticText("Weather pattern", CairoFont.WhiteSmallText(), patternLabel)
                 .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnPatternChanged, patternDrop, CairoFont.WhiteSmallText(), PatternDropKey)
@@ -378,6 +389,11 @@ namespace WeatherController
         {
             selectedPrecipitation = value / 100f;
             return true;
+        }
+
+        private void OnDialogTitleBarClosed()
+        {
+            TryClose();
         }
     }
 }

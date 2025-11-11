@@ -132,7 +132,6 @@ namespace WeatherController
                     weather.ReloadConfigs();
                     success = ApplyToAllRegions(weather, sim =>
                     {
-                        sim.ReloadPatterns(sapi.World.Seed);
                         bool result = sim.SetWeatherPattern(command.Code, command.UpdateInstantly);
                         if (result)
                         {
@@ -181,7 +180,6 @@ namespace WeatherController
                     weather.ReloadConfigs();
                     success = ApplyToAllRegions(weather, sim =>
                     {
-                        sim.ReloadPatterns(sapi.World.Seed);
                         bool result = sim.SetWindPattern(command.Code, command.UpdateInstantly);
                         if (result)
                         {
