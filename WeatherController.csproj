@@ -5,6 +5,11 @@
     <Nullable>disable</Nullable>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="SDK\**" />
+    <EmbeddedResource Remove="SDK\**" />
+    <None Remove="SDK\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="0Harmony">
