@@ -9,3 +9,9 @@ Der Weather Controller ist eine Beispiel-Mod für Vintage Story, die ein grafisc
 - Lege eine Niederschlags-Intensität fest oder entferne den Override wieder.
 
 Nur Spieler:innen mit dem Server-Privileg `controlserver` (oder `root`) können Änderungen anwenden.
+
+## Installation
+
+1. Baue das Projekt mit Visual Studio oder `msbuild WeatherController.csproj`.
+2. Kopiere die erzeugte `WeatherController.dll` zusammen mit der beiliegenden `modinfo.json` in einen neuen Ordner unterhalb von `%APPDATA%/VintagestoryData/Mods`.
+3. Starte Vintage Story neu, um die Mod zu laden.
