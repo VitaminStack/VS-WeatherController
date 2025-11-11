@@ -12,6 +12,8 @@ namespace WeatherController
         private const string WindDropKey = "wc-wind";
         private const string AllowStopSwitchKey = "wc-allowstop";
         private const string AutoSwitchKey = "wc-autoswitch";
+        private const string StormDropKey = "wc-storm";
+        private const string StormApplyButtonKey = "wc-storm-apply";
         private const string PatternRegionButtonKey = "wc-pattern-region";
         private const string PatternGlobalButtonKey = "wc-pattern-global";
         private const string EventRegionButtonKey = "wc-event-region";
@@ -27,12 +29,14 @@ namespace WeatherController
         {
             WeatherPatterns = Array.Empty<WeatherOptionEntry>(),
             WeatherEvents = Array.Empty<WeatherOptionEntry>(),
-            WindPatterns = Array.Empty<WeatherOptionEntry>()
+            WindPatterns = Array.Empty<WeatherOptionEntry>(),
+            TemporalStormModes = Array.Empty<WeatherOptionEntry>()
         };
 
         private string selectedPatternCode;
         private string selectedEventCode;
         private string selectedWindCode;
+        private string selectedTemporalStormMode;
         private bool selectedAllowStop = true;
         private bool selectedAutoChange;
         private float selectedPrecipitation;
@@ -58,7 +62,8 @@ namespace WeatherController
                 {
                     WeatherPatterns = Array.Empty<WeatherOptionEntry>(),
                     WeatherEvents = Array.Empty<WeatherOptionEntry>(),
-                    WindPatterns = Array.Empty<WeatherOptionEntry>()
+                    WindPatterns = Array.Empty<WeatherOptionEntry>(),
+                    TemporalStormModes = Array.Empty<WeatherOptionEntry>()
                 };
             }
 
@@ -77,13 +82,18 @@ namespace WeatherController
                 packet.WindPatterns = Array.Empty<WeatherOptionEntry>();
             }
 
+            if (packet.TemporalStormModes == null)
+            {
+                packet.TemporalStormModes = Array.Empty<WeatherOptionEntry>();
+            }
+
             currentOptions = packet;
             UpdateFromPacket(packet);
         }
 
         private void ComposeDialog()
         {
-            ElementBounds contentBounds = ElementBounds.Fixed(0, 0, 450, 320);
+            ElementBounds contentBounds = ElementBounds.Fixed(0, 0, 450, 360);
             contentBounds.BothSizing = ElementSizing.Fixed;
 
             ElementBounds backgroundBounds = ElementStdBounds.DialogBackground().WithFixedPadding(GuiStyle.ElementToDialogPadding, GuiStyle.ElementToDialogPadding);
@@ -105,18 +115,23 @@ namespace WeatherController
             ElementBounds windDrop = ElementBounds.Fixed(0, 192, 220, 30);
             ElementBounds windApplyBtn = ElementBounds.Fixed(230, 192, 100, 30);
 
-            ElementBounds autoLabel = ElementBounds.Fixed(0, 230, 200, 20);
-            ElementBounds autoSwitch = ElementBounds.Fixed(210, 226, 30, 30);
-            ElementBounds autoApplyBtn = ElementBounds.Fixed(250, 226, 100, 30);
+            ElementBounds stormLabel = ElementBounds.Fixed(0, 230, 220, 20);
+            ElementBounds stormDrop = ElementBounds.Fixed(0, 252, 220, 30);
+            ElementBounds stormApplyBtn = ElementBounds.Fixed(230, 252, 100, 30);
 
-            ElementBounds precipLabel = ElementBounds.Fixed(0, 266, 220, 20);
-            ElementBounds precipSlider = ElementBounds.Fixed(0, 288, 220, 30);
-            ElementBounds precipApplyBtn = ElementBounds.Fixed(230, 288, 100, 30);
-            ElementBounds precipResetBtn = ElementBounds.Fixed(340, 288, 100, 30);
+            ElementBounds autoLabel = ElementBounds.Fixed(0, 292, 200, 20);
+            ElementBounds autoSwitch = ElementBounds.Fixed(210, 288, 30, 30);
+            ElementBounds autoApplyBtn = ElementBounds.Fixed(250, 288, 100, 30);
+
+            ElementBounds precipLabel = ElementBounds.Fixed(0, 328, 220, 20);
+            ElementBounds precipSlider = ElementBounds.Fixed(0, 350, 220, 30);
+            ElementBounds precipApplyBtn = ElementBounds.Fixed(230, 350, 100, 30);
+            ElementBounds precipResetBtn = ElementBounds.Fixed(340, 350, 100, 30);
 
             contentBounds.WithChildren(patternLabel, patternDrop, patternRegionBtn, patternGlobalBtn,
                 eventLabel, eventDrop, eventRegionBtn, eventGlobalBtn, allowStopLabel, allowStopSwitch,
                 windLabel, windDrop, windApplyBtn,
+                stormLabel, stormDrop, stormApplyBtn,
                 autoLabel, autoSwitch, autoApplyBtn,
                 precipLabel, precipSlider, precipApplyBtn, precipResetBtn);
 
@@ -137,6 +152,9 @@ namespace WeatherController
                 .AddStaticText("Wind pattern", CairoFont.WhiteSmallText(), windLabel)
                 .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnWindChanged, windDrop, CairoFont.WhiteSmallText(), WindDropKey)
                 .AddSmallButton("Apply", OnWindApplyClicked, windApplyBtn, EnumButtonStyle.Normal, WindApplyButtonKey)
+                .AddStaticText("Temporal storms", CairoFont.WhiteSmallText(), stormLabel)
+                .AddDropDown(Array.Empty<string>(), Array.Empty<string>(), 0, OnStormModeChanged, stormDrop, CairoFont.WhiteSmallText(), StormDropKey)
+                .AddSmallButton("Apply", OnStormApplyClicked, stormApplyBtn, EnumButtonStyle.Normal, StormApplyButtonKey)
                 .AddStaticText("Auto-change patterns", CairoFont.WhiteSmallText(), autoLabel)
                 .AddSwitch(OnAutoSwitchToggled, autoSwitch, AutoSwitchKey)
                 .AddSmallButton("Apply", OnAutoApplyClicked, autoApplyBtn, EnumButtonStyle.Normal, AutoApplyButtonKey)
@@ -157,41 +175,10 @@ namespace WeatherController
                 return;
             }
 
-            var patternDrop = SingleComposer.GetDropDown(PatternDropKey);
-            var patternValues = packet.WeatherPatterns.Select(p => p.Code).ToArray();
-            var patternNames = packet.WeatherPatterns.Select(p => string.IsNullOrWhiteSpace(p.Name) ? p.Code : p.Name).ToArray();
-            patternDrop.SetList(patternValues, patternNames);
-            selectedPatternCode = packet.CurrentPatternCode != null && patternValues.Contains(packet.CurrentPatternCode)
-                ? packet.CurrentPatternCode
-                : patternValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(selectedPatternCode))
-            {
-                patternDrop.SetSelectedValue(selectedPatternCode);
-            }
-
-            var eventDrop = SingleComposer.GetDropDown(EventDropKey);
-            var eventValues = packet.WeatherEvents.Select(e => e.Code).ToArray();
-            var eventNames = packet.WeatherEvents.Select(e => string.IsNullOrWhiteSpace(e.Name) ? e.Code : e.Name).ToArray();
-            eventDrop.SetList(eventValues, eventNames);
-            selectedEventCode = packet.CurrentEventCode != null && eventValues.Contains(packet.CurrentEventCode)
-                ? packet.CurrentEventCode
-                : eventValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(selectedEventCode))
-            {
-                eventDrop.SetSelectedValue(selectedEventCode);
-            }
-
-            var windDrop = SingleComposer.GetDropDown(WindDropKey);
-            var windValues = packet.WindPatterns.Select(w => w.Code).ToArray();
-            var windNames = packet.WindPatterns.Select(w => string.IsNullOrWhiteSpace(w.Name) ? w.Code : w.Name).ToArray();
-            windDrop.SetList(windValues, windNames);
-            selectedWindCode = packet.CurrentWindCode != null && windValues.Contains(packet.CurrentWindCode)
-                ? packet.CurrentWindCode
-                : windValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(selectedWindCode))
-            {
-                windDrop.SetSelectedValue(selectedWindCode);
-            }
+            selectedPatternCode = UpdateDropDownSelection(PatternDropKey, packet.WeatherPatterns, packet.CurrentPatternCode, selectedPatternCode);
+            selectedEventCode = UpdateDropDownSelection(EventDropKey, packet.WeatherEvents, packet.CurrentEventCode, selectedEventCode);
+            selectedWindCode = UpdateDropDownSelection(WindDropKey, packet.WindPatterns, packet.CurrentWindCode, selectedWindCode);
+            selectedTemporalStormMode = UpdateDropDownSelection(StormDropKey, packet.TemporalStormModes, packet.CurrentTemporalStormMode, selectedTemporalStormMode);
 
             selectedAllowStop = packet.CurrentEventAllowStop ?? selectedAllowStop;
             SingleComposer.GetSwitch(AllowStopSwitchKey).SetValue(selectedAllowStop);
@@ -216,6 +203,7 @@ namespace WeatherController
             var eventRegionButton = SingleComposer.GetButton(EventRegionButtonKey);
             var eventGlobalButton = SingleComposer.GetButton(EventGlobalButtonKey);
             var windApplyButton = SingleComposer.GetButton(WindApplyButtonKey);
+            var stormApplyButton = SingleComposer.GetButton(StormApplyButtonKey);
             var autoApplyButton = SingleComposer.GetButton(AutoApplyButtonKey);
             var precipApplyButton = SingleComposer.GetButton(PrecipApplyButtonKey);
             var precipResetButton = SingleComposer.GetButton(PrecipResetButtonKey);
@@ -225,6 +213,10 @@ namespace WeatherController
             eventRegionButton.Enabled = regionAvailable && !string.IsNullOrEmpty(selectedEventCode);
             eventGlobalButton.Enabled = canControl && !string.IsNullOrEmpty(selectedEventCode);
             windApplyButton.Enabled = canControl && !string.IsNullOrEmpty(selectedWindCode);
+            if (stormApplyButton != null)
+            {
+                stormApplyButton.Enabled = canControl && !string.IsNullOrEmpty(selectedTemporalStormMode);
+            }
             autoApplyButton.Enabled = canControl;
             precipApplyButton.Enabled = canControl;
             precipResetButton.Enabled = canControl;
@@ -256,6 +248,15 @@ namespace WeatherController
             if (selected)
             {
                 selectedWindCode = code;
+                UpdateButtonStates();
+            }
+        }
+
+        private void OnStormModeChanged(string code, bool selected)
+        {
+            if (selected)
+            {
+                selectedTemporalStormMode = code;
                 UpdateButtonStates();
             }
         }
@@ -354,6 +355,21 @@ namespace WeatherController
             return true;
         }
 
+        private bool OnStormApplyClicked()
+        {
+            if (string.IsNullOrEmpty(selectedTemporalStormMode))
+            {
+                return true;
+            }
+
+            system.SendCommand(new WeatherControlCommand
+            {
+                Action = WeatherControlAction.SetTemporalStormMode,
+                Code = selectedTemporalStormMode
+            });
+            return true;
+        }
+
         private bool OnAutoApplyClicked()
         {
             system.SendCommand(new WeatherControlCommand
@@ -394,6 +410,45 @@ namespace WeatherController
         private void OnDialogTitleBarClosed()
         {
             TryClose();
+        }
+
+        private string UpdateDropDownSelection(string dropKey, WeatherOptionEntry[] options, string currentCode, string previousSelection)
+        {
+            var dropDown = SingleComposer.GetDropDown(dropKey);
+            if (dropDown == null)
+            {
+                return previousSelection;
+            }
+
+            var validOptions = options.Where(option => option != null && !string.IsNullOrEmpty(option.Code)).ToArray();
+            string[] values = validOptions.Select(option => option.Code).ToArray();
+            string[] names = validOptions.Select(option => string.IsNullOrWhiteSpace(option.Name) ? option.Code : option.Name).ToArray();
+
+            dropDown.SetList(values, names);
+
+            if (values.Length == 0)
+            {
+                dropDown.SetSelectedIndex(-1);
+                return null;
+            }
+
+            string targetCode = null;
+            if (!string.IsNullOrEmpty(currentCode) && values.Contains(currentCode))
+            {
+                targetCode = currentCode;
+            }
+            else if (!string.IsNullOrEmpty(previousSelection) && values.Contains(previousSelection))
+            {
+                targetCode = previousSelection;
+            }
+            else
+            {
+                targetCode = values[0];
+            }
+
+            int index = Array.IndexOf(values, targetCode);
+            dropDown.SetSelectedIndex(index);
+            return targetCode;
         }
     }
 }

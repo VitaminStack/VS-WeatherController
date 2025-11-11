@@ -60,6 +60,12 @@ namespace WeatherController
 
         [ProtoMember(13)]
         public string Message { get; set; }
+
+        [ProtoMember(14)]
+        public WeatherOptionEntry[] TemporalStormModes { get; set; }
+
+        [ProtoMember(15)]
+        public string CurrentTemporalStormMode { get; set; }
     }
 
     public enum WeatherControlAction
@@ -73,7 +79,8 @@ namespace WeatherController
         SetAutoChange,
         SetPrecipitationOverride,
         ClearPrecipitationOverride,
-        RefreshOptions
+        RefreshOptions,
+        SetTemporalStormMode
     }
 
     [ProtoContract]

@@ -5,6 +5,7 @@ Der Weather Controller ist eine Beispiel-Mod für Vintage Story, die ein grafisc
 ## Funktionen
 - Öffne die Wettersteuerung mit der Standard-Hotkey-Belegung `O`.
 - Wähle Wettermuster, Ereignisse und Windprofile aus und setze sie entweder für die aktuelle Region oder für alle geladenen Regionen.
+- Konfiguriere temporale Stürme, indem du ihre Häufigkeit (oder "Aus") direkt im Dialog auswählst.
 - Schalte das automatische Wechseln der Wetterlagen ein oder aus.
 - Lege eine Niederschlags-Intensität fest oder entferne den Override wieder.
 

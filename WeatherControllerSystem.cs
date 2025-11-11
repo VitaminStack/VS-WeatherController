@@ -1,5 +1,9 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
@@ -224,6 +228,9 @@ namespace WeatherController
                 case WeatherControlAction.RefreshOptions:
                     success = true;
                     break;
+                case WeatherControlAction.SetTemporalStormMode:
+                    success = TrySetTemporalStormMode(command.Code, out message);
+                    break;
                 default:
                     message = "Unknown weather controller action.";
                     break;
@@ -292,6 +299,7 @@ namespace WeatherController
                 WeatherPatterns = Array.Empty<WeatherOptionEntry>(),
                 WeatherEvents = Array.Empty<WeatherOptionEntry>(),
                 WindPatterns = Array.Empty<WeatherOptionEntry>(),
+                TemporalStormModes = Array.Empty<WeatherOptionEntry>(),
                 Message = message
             };
 
@@ -333,10 +341,186 @@ namespace WeatherController
                 packet.RainCloudDaysOffset = weather.RainCloudDaysOffset;
             }
 
+            SystemTemporalStability storms = sapi.ModLoader.GetModSystem<SystemTemporalStability>(false);
+            if (storms != null)
+            {
+                packet.TemporalStormModes = GetTemporalStormOptions(storms);
+                packet.CurrentTemporalStormMode = GetCurrentTemporalStormMode(storms);
+            }
+
             bool hasPrivilege = player.HasPrivilege(Privilege.controlserver) || player.HasPrivilege(Privilege.root);
             packet.HasControlPrivilege = hasPrivilege;
 
             serverChannel.SendPacket(packet, player);
+        }
+
+        private WeatherOptionEntry[] GetTemporalStormOptions(SystemTemporalStability storms)
+        {
+            var options = new List<WeatherOptionEntry>
+            {
+                new WeatherOptionEntry { Code = "off", Name = FormatStormModeName("off") }
+            };
+
+            IDictionary configs = GetStormConfigDictionary(storms);
+            if (configs != null)
+            {
+                foreach (DictionaryEntry entry in configs)
+                {
+                    if (entry.Key is string code && !string.IsNullOrEmpty(code))
+                    {
+                        options.Add(new WeatherOptionEntry
+                        {
+                            Code = code,
+                            Name = FormatStormModeName(code)
+                        });
+                    }
+                }
+            }
+
+            return options.ToArray();
+        }
+
+        private string GetCurrentTemporalStormMode(SystemTemporalStability storms)
+        {
+            string configured = sapi.World.Config.GetString("temporalStorms", null);
+            if (string.IsNullOrEmpty(configured))
+            {
+                configured = GetStormWorldConfig(storms);
+                if (string.IsNullOrEmpty(configured))
+                {
+                    object activeConfig = GetStormField(storms, "config");
+                    IDictionary configs = GetStormConfigDictionary(storms);
+                    if (configs != null && activeConfig != null)
+                    {
+                        foreach (DictionaryEntry entry in configs)
+                        {
+                            if (entry.Value == activeConfig)
+                            {
+                                configured = entry.Key as string;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(configured))
+            {
+                configured = "off";
+            }
+
+            return configured;
+        }
+
+        private bool TrySetTemporalStormMode(string requestedMode, out string message)
+        {
+            message = null;
+            if (string.IsNullOrEmpty(requestedMode))
+            {
+                message = "No temporal storm mode supplied.";
+                return false;
+            }
+
+            string normalized = requestedMode.Trim().ToLowerInvariant();
+            SystemTemporalStability storms = sapi.ModLoader.GetModSystem<SystemTemporalStability>(false);
+            if (storms == null)
+            {
+                message = "Temporal storms system is not available.";
+                return false;
+            }
+
+            IDictionary configs = GetStormConfigDictionary(storms);
+            if (normalized != "off" && (configs == null || !configs.Contains(normalized)))
+            {
+                message = string.Format("Temporal storm mode '{0}' is not recognized.", requestedMode);
+                return false;
+            }
+
+            sapi.World.Config.SetString("temporalStorms", normalized);
+            sapi.WorldManager.SaveGame.WorldConfiguration.SetString("temporalStorms", normalized);
+
+            SetStormField(storms, "worldConfigStorminess", normalized);
+            SetStormField(storms, "stormsEnabled", normalized != "off");
+
+            object stormConfig = null;
+            if (normalized != "off" && configs != null)
+            {
+                stormConfig = configs[normalized];
+            }
+
+            SetStormField(storms, "config", stormConfig);
+
+            if (normalized == "off")
+            {
+                var data = storms.StormData;
+                if (data != null)
+                {
+                    data.nowStormActive = false;
+                }
+                message = "Temporal storms disabled.";
+            }
+            else
+            {
+                InvokeStormMethod(storms, "prepareNextStorm");
+                message = string.Format("Temporal storms set to {0}.", FormatStormModeName(normalized));
+            }
+
+            return true;
+        }
+
+        private IDictionary GetStormConfigDictionary(SystemTemporalStability storms)
+        {
+            FieldInfo configsField = typeof(SystemTemporalStability).GetField("configs", BindingFlags.Instance | BindingFlags.NonPublic);
+            return configsField?.GetValue(storms) as IDictionary;
+        }
+
+        private string GetStormWorldConfig(SystemTemporalStability storms)
+        {
+            return GetStormField(storms, "worldConfigStorminess") as string;
+        }
+
+        private object GetStormField(SystemTemporalStability storms, string fieldName)
+        {
+            FieldInfo field = typeof(SystemTemporalStability).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            return field?.GetValue(storms);
+        }
+
+        private void SetStormField(SystemTemporalStability storms, string fieldName, object value)
+        {
+            FieldInfo field = typeof(SystemTemporalStability).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            field?.SetValue(storms, value);
+        }
+
+        private void InvokeStormMethod(SystemTemporalStability storms, string methodName)
+        {
+            MethodInfo method = typeof(SystemTemporalStability).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            method?.Invoke(storms, Array.Empty<object>());
+        }
+
+        private string FormatStormModeName(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+            {
+                return string.Empty;
+            }
+
+            switch (code.ToLowerInvariant())
+            {
+                case "off":
+                    return "Off";
+                case "veryrare":
+                    return "Very Rare";
+                case "rare":
+                    return "Rare";
+                case "sometimes":
+                    return "Sometimes";
+                case "often":
+                    return "Often";
+                case "veryoften":
+                    return "Very Often";
+                default:
+                    return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(code);
+            }
         }
     }
 }
