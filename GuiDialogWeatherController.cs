@@ -24,6 +24,38 @@ namespace WeatherController
         private const string PrecipApplyButtonKey = "wc-precip-apply";
         private const string PrecipResetButtonKey = "wc-precip-reset";
 
+        private static readonly double[] DefaultLightBgColor =
+        {
+            0x40 / 255d,
+            0x35 / 255d,
+            0x29 / 255d,
+            0.75
+        };
+
+        private static readonly double[] DefaultDialogBgColor =
+        {
+            0x40 / 255d,
+            0x35 / 255d,
+            0x29 / 255d,
+            0.85
+        };
+
+        private static readonly double[] DefaultStrongBgColor =
+        {
+            0x40 / 255d,
+            0x35 / 255d,
+            0x29 / 255d,
+            0.95
+        };
+
+        private static readonly double[] DefaultHighlightColor =
+        {
+            0xA8 / 255d,
+            0x8B / 255d,
+            0x6C / 255d,
+            0.85
+        };
+
         private readonly WeatherControllerSystem system;
         private WeatherOptionsPacket currentOptions = new WeatherOptionsPacket
         {
@@ -103,6 +135,7 @@ namespace WeatherController
             const double buttonHeight = 28;
             const double switchHeight = 26;
             const double actionWidth = 120;
+            const double dialogOffsetY = 40;
 
             double currentY = 0;
 
@@ -186,7 +219,10 @@ namespace WeatherController
             CairoFont headingFont = CairoFont.WhiteSmallishText();
             CairoFont bodyFont = CairoFont.WhiteSmallText();
 
-            SingleComposer = capi.Gui.CreateCompo("weathercontroller", ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle))
+            ElementBounds dialogBounds = ElementStdBounds.AutosizedMainDialogAtPos(dialogOffsetY)
+                .WithFixedAlignmentOffset(0, GuiStyle.DialogToScreenPadding);
+
+            SingleComposer = capi.Gui.CreateCompo("weathercontroller", dialogBounds)
                 .AddShadedDialogBG(backgroundBounds, true)
                 .AddDialogTitleBar(DialogTitle, OnDialogTitleBarClosed)
                 .BeginChildElements(contentBounds)
@@ -227,38 +263,39 @@ namespace WeatherController
 
         private void EnsureDialogTheme()
         {
-            GuiStyle.DialogStrongBgColor = EnsureColorOpacity(GuiStyle.DialogStrongBgColor, 0.85);
-            GuiStyle.DialogDefaultBgColor = EnsureColorOpacity(GuiStyle.DialogDefaultBgColor, 0.65);
-            GuiStyle.DialogHighlightColor = EnsureColorOpacity(GuiStyle.DialogHighlightColor, 0.6);
+            GuiStyle.DialogLightBgColor = EnsureColor(GuiStyle.DialogLightBgColor, DefaultLightBgColor);
+            GuiStyle.DialogDefaultBgColor = EnsureColor(GuiStyle.DialogDefaultBgColor, DefaultDialogBgColor);
+            GuiStyle.DialogStrongBgColor = EnsureColor(GuiStyle.DialogStrongBgColor, DefaultStrongBgColor);
+            GuiStyle.DialogHighlightColor = EnsureColor(GuiStyle.DialogHighlightColor, DefaultHighlightColor);
         }
 
-        private double[] EnsureColorOpacity(double[] color, double fallbackAlpha)
+        private double[] EnsureColor(double[] color, double[] fallback)
         {
-            if (color == null)
+            if (color == null || color.Length < 3)
             {
-                return new[] { 0d, 0d, 0d, fallbackAlpha };
+                return (double[])fallback.Clone();
             }
 
-            if (color.Length < 4)
+            double[] adjusted = (double[])color.Clone();
+            if (adjusted.Length < 4)
             {
-                double[] extended = new double[4];
-                int copyLength = Math.Min(color.Length, 3);
-                for (int i = 0; i < copyLength; i++)
-                {
-                    extended[i] = color[i];
-                }
-                extended[3] = fallbackAlpha;
-                return extended;
+                Array.Resize(ref adjusted, 4);
             }
 
-            if (color[3] <= 0.001)
+            if (adjusted[3] <= 0.05)
             {
-                double[] copy = (double[])color.Clone();
-                copy[3] = fallbackAlpha;
-                return copy;
+                adjusted[3] = fallback.Length > 3 ? fallback[3] : 1.0;
             }
 
-            return color;
+            bool lacksColor = adjusted[0] <= 0.001 && adjusted[1] <= 0.001 && adjusted[2] <= 0.001;
+            if (lacksColor && fallback.Length >= 3)
+            {
+                adjusted[0] = fallback[0];
+                adjusted[1] = fallback[1];
+                adjusted[2] = fallback[2];
+            }
+
+            return adjusted;
         }
 
         private void UpdateFromPacket(WeatherOptionsPacket packet)
