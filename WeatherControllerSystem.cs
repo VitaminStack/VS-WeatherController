@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Vintagestory.API.Config;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -190,24 +191,31 @@ namespace WeatherController
                     break;
                 case WeatherControlAction.SetRegionEvent:
                     weather.ReloadConfigs();
-                    bool regionAutoStopDisabled = false;
+                    WeatherEventConfig regionEventConfig = GetEventConfig(weather, command.Code);
+                    string regionFailureMessage = null;
                     success = TryWithRegion(fromPlayer, weather, sim =>
                     {
+                        if (IsEventIncompatible(regionEventConfig, sim))
+                        {
+                            regionFailureMessage = FormatIncompatibleEventMessage(command.Code, sim);
+                            return false;
+                        }
                         if (!sim.SetWeatherEvent(command.Code, command.UpdateInstantly))
                         {
+                            regionFailureMessage = FormatEventApplyFailedMessage(command.Code, sim);
                             return false;
                         }
                         if (command.UseAllowStop && sim.CurWeatherEvent != null)
                         {
-                            regionAutoStopDisabled |= ApplyAllowStopSetting(sim, command);
+                            sim.CurWeatherEvent.AllowStop = command.AllowStop;
                         }
                         sim.CurWeatherEvent?.OnBeginUse();
                         sim.TickEvery25ms(0.025f);
                         return true;
                     }, out message, "Weather event applied to this region.", "No weather simulation is active for this region.");
-                    if (success && regionAutoStopDisabled)
+                    if (!success && !string.IsNullOrEmpty(regionFailureMessage))
                     {
-                        message = AppendAutoStopDisabledNotice(message);
+                        message = regionFailureMessage;
                     }
                     if (success && command.UseSelectionLock)
                     {
@@ -217,36 +225,50 @@ namespace WeatherController
                             {
                                 state.EventLocked = true;
                                 state.EventCode = command.Code;
+                                state.EventWarningShown = false;
                             }
                             else
                             {
                                 state.EventLocked = false;
                                 state.EventCode = null;
+                                state.EventWarningShown = false;
                             }
                         });
                     }
                     break;
                 case WeatherControlAction.SetGlobalEvent:
                     weather.ReloadConfigs();
-                    bool globalAutoStopDisabled = false;
+                    WeatherEventConfig globalEventConfig = GetEventConfig(weather, command.Code);
+                    string globalFailureMessage = null;
                     success = ApplyToAllRegions(weather, sim =>
                     {
+                        if (IsEventIncompatible(globalEventConfig, sim))
+                        {
+                            globalFailureMessage = FormatIncompatibleEventMessage(command.Code, sim);
+                            return false;
+                        }
                         if (!sim.SetWeatherEvent(command.Code, command.UpdateInstantly))
                         {
+                            globalFailureMessage = FormatEventApplyFailedMessage(command.Code, sim);
                             return false;
                         }
                         if (command.UseAllowStop && sim.CurWeatherEvent != null)
                         {
-                            globalAutoStopDisabled |= ApplyAllowStopSetting(sim, command);
+                            sim.CurWeatherEvent.AllowStop = command.AllowStop;
                         }
                         sim.CurWeatherEvent?.OnBeginUse();
                         sim.TickEvery25ms(0.025f);
                         return true;
                     });
-                    message = success ? "Weather event applied to all loaded regions." : "Weather event could not be applied.";
-                    if (success && globalAutoStopDisabled)
+                    if (!success)
                     {
-                        message = AppendAutoStopDisabledNotice(message);
+                        message = !string.IsNullOrEmpty(globalFailureMessage)
+                            ? globalFailureMessage
+                            : "Weather event could not be applied.";
+                    }
+                    else
+                    {
+                        message = "Weather event applied to all loaded regions.";
                     }
                     if (success && command.UseSelectionLock)
                     {
@@ -254,11 +276,13 @@ namespace WeatherController
                         {
                             globalLock.EventLocked = true;
                             globalLock.EventCode = command.Code;
+                            globalLock.EventWarningShown = false;
                         }
                         else
                         {
                             globalLock.EventLocked = false;
                             globalLock.EventCode = null;
+                            globalLock.EventWarningShown = false;
                         }
                     }
                     break;
@@ -488,46 +512,6 @@ namespace WeatherController
             serverChannel.SendPacket(packet, player);
         }
 
-        private bool ApplyAllowStopSetting(WeatherSimulationRegion simulation, WeatherControlCommand command)
-        {
-            if (!command.UseAllowStop || simulation?.CurWeatherEvent == null)
-            {
-                return false;
-            }
-
-            bool allowStop = command.AllowStop;
-            bool autoStopDisabled = false;
-
-            if (allowStop)
-            {
-                ClimateCondition climate = simulation.weatherData?.climateCond;
-                WeatherEventConfig config = simulation.CurWeatherEvent?.config;
-                if (climate != null && config != null)
-                {
-                    float weight = config.getWeight(climate.Rainfall, climate.Temperature);
-                    if (weight <= 0f)
-                    {
-                        allowStop = false;
-                        autoStopDisabled = true;
-                    }
-                }
-            }
-
-            simulation.CurWeatherEvent.AllowStop = allowStop;
-            return autoStopDisabled;
-        }
-
-        private static string AppendAutoStopDisabledNotice(string message)
-        {
-            const string notice = " Automatic stopping was disabled because the current climate would immediately cancel this event.";
-            if (string.IsNullOrEmpty(message))
-            {
-                return notice.TrimStart();
-            }
-
-            return message + notice;
-        }
-
         private void OnLockMaintenance(float dt)
         {
             if (sapi == null)
@@ -552,6 +536,9 @@ namespace WeatherController
                 return;
             }
 
+            WeatherEventConfig lockedEventConfig = globalLock.EventLocked ? GetEventConfig(weather, globalLock.EventCode) : null;
+            WeatherSimulationRegion firstFailureRegion = null;
+            bool allEventApplied = true;
             foreach (WeatherSimulationRegion region in weather.weatherSimByMapRegion.Values)
             {
                 if (region == null)
@@ -566,24 +553,54 @@ namespace WeatherController
 
                 if (globalLock.EventLocked)
                 {
-                    if (!CodesEqual(region.CurWeatherEvent?.config?.Code, globalLock.EventCode))
+                    if (IsEventIncompatible(lockedEventConfig, region))
                     {
-                        region.SetWeatherEvent(globalLock.EventCode, true);
+                        allEventApplied = false;
+                        if (firstFailureRegion == null)
+                        {
+                            firstFailureRegion = region;
+                        }
+                        continue;
                     }
-                    if (region.CurWeatherEvent != null)
+
+                    bool active = CodesEqual(region.CurWeatherEvent?.config?.Code, globalLock.EventCode);
+                    if (!active)
                     {
-                        region.CurWeatherEvent.AllowStop = false;
+                        active = region.SetWeatherEvent(globalLock.EventCode, true) && CodesEqual(region.CurWeatherEvent?.config?.Code, globalLock.EventCode);
                     }
-                }
-                else if (region.CurWeatherEvent != null)
-                {
-                    region.CurWeatherEvent.AllowStop = true;
+
+                    if (!active)
+                    {
+                        allEventApplied = false;
+                        if (firstFailureRegion == null)
+                        {
+                            firstFailureRegion = region;
+                        }
+                    }
                 }
 
                 if (globalLock.WindLocked && !CodesEqual(region.CurWindPattern?.config?.Code, globalLock.WindCode))
                 {
                     region.SetWindPattern(globalLock.WindCode, true);
                 }
+            }
+
+            if (!globalLock.EventLocked)
+            {
+                globalLock.EventWarningShown = false;
+            }
+            else if (!allEventApplied)
+            {
+                if (!globalLock.EventWarningShown)
+                {
+                    string regionInfo = firstFailureRegion != null ? $" (e.g., region {FormatRegionCoordinates(firstFailureRegion)})" : string.Empty;
+                    BroadcastControlMessage($"Locked global weather event '{globalLock.EventCode}' cannot run in at least one region because of the current climate{regionInfo}. It will not be forced.");
+                    globalLock.EventWarningShown = true;
+                }
+            }
+            else
+            {
+                globalLock.EventWarningShown = false;
             }
         }
 
@@ -602,6 +619,7 @@ namespace WeatherController
                 }
 
                 RegionLockState state = entry.Value;
+                WeatherEventConfig lockedEvent = state.EventLocked ? GetEventConfig(weather, state.EventCode) : null;
                 if (state.PatternLocked && !CodesEqual(region.NewWePattern?.config?.Code ?? region.OldWePattern?.config?.Code, state.PatternCode))
                 {
                     region.SetWeatherPattern(state.PatternCode, true);
@@ -609,18 +627,38 @@ namespace WeatherController
 
                 if (state.EventLocked)
                 {
-                    if (!CodesEqual(region.CurWeatherEvent?.config?.Code, state.EventCode))
+                    if (IsEventIncompatible(lockedEvent, region))
                     {
-                        region.SetWeatherEvent(state.EventCode, true);
+                        if (!state.EventWarningShown)
+                        {
+                            BroadcastControlMessage($"Locked weather event '{state.EventCode}' cannot run in region {FormatRegionCoordinates(region)} because of the local climate. It will not be forced.");
+                            state.EventWarningShown = true;
+                        }
+                        continue;
                     }
-                    if (region.CurWeatherEvent != null)
+
+                    bool active = CodesEqual(region.CurWeatherEvent?.config?.Code, state.EventCode);
+                    if (!active)
                     {
-                        region.CurWeatherEvent.AllowStop = false;
+                        active = region.SetWeatherEvent(state.EventCode, true) && CodesEqual(region.CurWeatherEvent?.config?.Code, state.EventCode);
+                    }
+
+                    if (!active)
+                    {
+                        if (!state.EventWarningShown)
+                        {
+                            BroadcastControlMessage($"Locked weather event '{state.EventCode}' cannot run in region {FormatRegionCoordinates(region)} because of the local climate. It will not be forced.");
+                            state.EventWarningShown = true;
+                        }
+                    }
+                    else
+                    {
+                        state.EventWarningShown = false;
                     }
                 }
-                else if (region.CurWeatherEvent != null)
+                else
                 {
-                    region.CurWeatherEvent.AllowStop = true;
+                    state.EventWarningShown = false;
                 }
             }
         }
@@ -757,6 +795,73 @@ namespace WeatherController
             }
 
             return true;
+        }
+
+        private WeatherEventConfig GetEventConfig(WeatherSystemServer weather, string code)
+        {
+            if (weather?.WeatherEventConfigs == null || string.IsNullOrEmpty(code))
+            {
+                return null;
+            }
+
+            return weather.WeatherEventConfigs.FirstOrDefault(config => CodesEqual(config.Code, code));
+        }
+
+        private static bool IsEventIncompatible(WeatherEventConfig config, WeatherSimulationRegion simulation)
+        {
+            ClimateCondition climate = simulation?.weatherData?.climateCond;
+            if (config == null || climate == null)
+            {
+                return false;
+            }
+
+            return config.getWeight(climate.Rainfall, climate.Temperature) <= 0f;
+        }
+
+        private string FormatIncompatibleEventMessage(string eventCode, WeatherSimulationRegion region)
+        {
+            string name = string.IsNullOrEmpty(eventCode) ? "(unknown)" : eventCode;
+            return $"The weather event '{name}' cannot run in region {FormatRegionCoordinates(region)} because of the local climate. It was not applied.";
+        }
+
+        private string FormatEventApplyFailedMessage(string eventCode, WeatherSimulationRegion region)
+        {
+            string name = string.IsNullOrEmpty(eventCode) ? "(unknown)" : eventCode;
+            return $"The weather event '{name}' could not be applied to region {FormatRegionCoordinates(region)}.";
+        }
+
+        private string FormatRegionCoordinates(WeatherSimulationRegion region)
+        {
+            if (region == null || sapi == null)
+            {
+                return "(unknown)";
+            }
+
+            int regionSize = sapi.World.BlockAccessor.RegionSize;
+            int x = region.regionX * regionSize + regionSize / 2;
+            int z = region.regionZ * regionSize + regionSize / 2;
+            return $"({x}, {z})";
+        }
+
+        private void BroadcastControlMessage(string message)
+        {
+            if (string.IsNullOrEmpty(message) || sapi?.World?.AllOnlinePlayers == null)
+            {
+                return;
+            }
+
+            foreach (IServerPlayer player in sapi.World.AllOnlinePlayers)
+            {
+                if (player == null)
+                {
+                    continue;
+                }
+
+                if (player.HasPrivilege(Privilege.controlserver) || player.HasPrivilege(Privilege.root))
+                {
+                    player.SendMessage(GlobalConstants.GeneralChatGroup, message, EnumChatType.CommandSuccess, null);
+                }
+            }
         }
 
         private bool TryStartTemporalStorm(out string message)
@@ -1004,6 +1109,7 @@ namespace WeatherController
             public string PatternCode;
             public bool EventLocked;
             public string EventCode;
+            public bool EventWarningShown;
         }
 
         private class GlobalLockState
@@ -1014,6 +1120,7 @@ namespace WeatherController
             public string EventCode;
             public bool WindLocked;
             public string WindCode;
+            public bool EventWarningShown;
         }
     }
 }
