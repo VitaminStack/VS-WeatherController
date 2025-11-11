@@ -266,8 +266,8 @@ namespace WeatherController
                 {
                     string code = option.Code;
                     string name = GetOptionDisplayName(option);
-                    string regionKey = PatternRegionButtonPrefix + SanitizeKey(code);
-                    string globalKey = PatternGlobalButtonPrefix + SanitizeKey(code);
+                    string regionKey = CreateUniqueKey(PatternRegionButtonPrefix, code, patternRegionButtonKeys);
+                    string globalKey = CreateUniqueKey(PatternGlobalButtonPrefix, code, patternGlobalButtonKeys);
 
                     ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, patternY, patternButtonWidth, buttonHeight);
                     ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding + patternButtonWidth + columnSpacing, patternY, patternButtonWidth, buttonHeight);
@@ -304,8 +304,8 @@ namespace WeatherController
                 {
                     string code = option.Code;
                     string name = GetOptionDisplayName(option);
-                    string regionKey = EventRegionButtonPrefix + SanitizeKey(code);
-                    string globalKey = EventGlobalButtonPrefix + SanitizeKey(code);
+                    string regionKey = CreateUniqueKey(EventRegionButtonPrefix, code, eventRegionButtonKeys);
+                    string globalKey = CreateUniqueKey(EventGlobalButtonPrefix, code, eventGlobalButtonKeys);
 
                     ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, eventY, eventButtonWidth, buttonHeight);
                     ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding + eventButtonWidth + columnSpacing, eventY, eventButtonWidth, buttonHeight);
@@ -341,7 +341,7 @@ namespace WeatherController
                 {
                     string code = option.Code;
                     string name = GetOptionDisplayName(option);
-                    string key = WindButtonPrefix + SanitizeKey(code);
+                    string key = CreateUniqueKey(WindButtonPrefix, code, windButtonKeys);
 
                     double x = sectionPadding + column * (windButtonWidth + columnSpacing);
                     ElementBounds bounds = ElementBounds.Fixed(x, windY, windButtonWidth, buttonHeight);
@@ -379,7 +379,7 @@ namespace WeatherController
                 {
                     string code = option.Code;
                     string name = GetOptionDisplayName(option);
-                    string key = StormButtonPrefix + SanitizeKey(code);
+                    string key = CreateUniqueKey(StormButtonPrefix, code, stormButtonKeys);
 
                     double x = sectionPadding + column * (stormButtonWidth + columnSpacing);
                     ElementBounds bounds = ElementBounds.Fixed(x, stormY, stormButtonWidth, buttonHeight);
@@ -833,6 +833,27 @@ namespace WeatherController
 
             int rows = (itemCount + columns - 1) / columns;
             return CalculateRowHeight(rows, buttonHeight, rowSpacing);
+        }
+
+        private static string CreateUniqueKey(string prefix, string code, ICollection<string> existingKeys)
+        {
+            string sanitized = SanitizeKey(code);
+            string baseKey = prefix + sanitized;
+
+            if (existingKeys == null || !existingKeys.Contains(baseKey))
+            {
+                return baseKey;
+            }
+
+            int suffix = 1;
+            string candidate;
+            do
+            {
+                candidate = string.Format("{0}-{1}", baseKey, suffix++);
+            }
+            while (existingKeys.Contains(candidate));
+
+            return candidate;
         }
 
         private static string SanitizeKey(string code)
