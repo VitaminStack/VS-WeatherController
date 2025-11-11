@@ -23,6 +23,7 @@ namespace WeatherController
         private const string EventGlobalDropdownKey = "wc-event-global";
         private const string WindDropdownKey = "wc-wind";
         private const string StormDropdownKey = "wc-storm";
+        private const string StormSummonButtonKey = "wc-storm-summon";
         private const string StormStopButtonKey = "wc-storm-stop";
         private const string PatternRegionLockSwitchKey = "wc-pattern-region-lock";
         private const string PatternGlobalLockSwitchKey = "wc-pattern-global-lock";
@@ -155,7 +156,7 @@ namespace WeatherController
 
             EnsureDialogTheme();
 
-            const double sectionWidth = 440;
+            const double sectionWidth = 460;
             const double sectionPadding = 12;
             const double sectionSpacing = 12;
             const double rowSpacing = 8;
@@ -167,7 +168,10 @@ namespace WeatherController
             const double controlHeight = 32;
             const double actionWidth = 120;
             const double dialogOffsetY = 40;
-            const double lockSpacing = 6;
+            const double lockColumnWidth = 200;
+            const double switchColumnWidth = 50;
+            const double lockLabelWidth = lockColumnWidth - switchColumnWidth - rowSpacing;
+            const double buttonSpacing = 10;
 
             patternEntries = GetValidOptions(currentOptions.WeatherPatterns);
             eventEntries = GetValidOptions(currentOptions.WeatherEvents);
@@ -184,16 +188,16 @@ namespace WeatherController
             stormNames = stormEntries.Select(GetOptionDisplayName).ToArray();
 
             double patternContentHeight = patternEntries.Length > 0
-                ? 2 * (dropDownHeight + lockSpacing + switchHeight) + rowSpacing
+                ? 2 * dropDownHeight + rowSpacing
                 : infoTextHeight;
             double eventContentHeight = eventEntries.Length > 0
-                ? 2 * (dropDownHeight + lockSpacing + switchHeight) + rowSpacing
+                ? 2 * dropDownHeight + rowSpacing
                 : infoTextHeight;
             double windContentHeight = windEntries.Length > 0
-                ? dropDownHeight + lockSpacing + switchHeight
+                ? dropDownHeight
                 : infoTextHeight;
             double stormContentHeight = stormEntries.Length > 0
-                ? dropDownHeight + lockSpacing + switchHeight
+                ? dropDownHeight
                 : infoTextHeight;
 
             double contentTopOffset = GuiStyle.TitleBarHeight + sectionPadding;
@@ -255,7 +259,10 @@ namespace WeatherController
             ElementBounds stormLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, headingHeight);
             ElementBounds stormCurrentLabel = ElementBounds.Fixed(sectionPadding, stormLabel.fixedY + stormLabel.fixedHeight + rowSpacing, sectionWidth - 2 * sectionPadding, infoTextHeight);
             double stormOptionsStartY = stormCurrentLabel.fixedY + stormCurrentLabel.fixedHeight + rowSpacing;
-            ElementBounds stormStopButton = ElementBounds.Fixed(sectionPadding, stormOptionsStartY + Math.Max(stormContentHeight, infoTextHeight) + rowSpacing, sectionWidth - 2 * sectionPadding, buttonHeight);
+            double stormButtonsY = stormOptionsStartY + Math.Max(stormContentHeight, infoTextHeight) + rowSpacing;
+            double stormButtonWidth = (sectionWidth - 2 * sectionPadding - buttonSpacing) / 2;
+            ElementBounds stormSummonButton = ElementBounds.Fixed(sectionPadding, stormButtonsY, stormButtonWidth, buttonHeight);
+            ElementBounds stormStopButton = ElementBounds.Fixed(stormSummonButton.fixedX + stormSummonButton.fixedWidth + buttonSpacing, stormButtonsY, stormButtonWidth, buttonHeight);
 
             ElementBounds autoLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, headingHeight);
             ElementBounds autoSwitch = ElementBounds.Fixed(sectionPadding, autoLabel.fixedY + autoLabel.fixedHeight + rowSpacing, switchHeight + 10, switchHeight + 4);
@@ -269,7 +276,7 @@ namespace WeatherController
             patternSection.WithChildren(patternLabel, patternCurrentLabel);
             eventSection.WithChildren(eventLabel, allowStopLabel, allowStopSwitch, eventCurrentLabel);
             windSection.WithChildren(windLabel, windCurrentLabel);
-            stormSection.WithChildren(stormLabel, stormCurrentLabel, stormStopButton);
+            stormSection.WithChildren(stormLabel, stormCurrentLabel, stormSummonButton, stormStopButton);
             autoSection.WithChildren(autoLabel, autoSwitch, autoApplyBtn);
             precipSection.WithChildren(precipLabel, precipSlider, precipApplyBtn, precipResetBtn);
 
@@ -289,23 +296,27 @@ namespace WeatherController
 
             if (patternEntries.Length > 0)
             {
-                double dropWidth = sectionWidth - 2 * sectionPadding;
+                double dropWidth = sectionWidth - 2 * sectionPadding - lockColumnWidth;
                 ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, patternOptionsStartY, dropWidth, dropDownHeight);
-                ElementBounds regionLockLabel = ElementBounds.Fixed(sectionPadding, regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
-                ElementBounds regionLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
-                double globalY = regionLockSwitch.fixedY + switchHeight + rowSpacing;
+                double regionLockY = regionBounds.fixedY + (dropDownHeight - switchHeight) / 2;
+                ElementBounds regionLockSwitch = ElementBounds.Fixed(regionBounds.fixedX + regionBounds.fixedWidth + rowSpacing, regionLockY, switchColumnWidth, switchHeight);
+                ElementBounds regionLockLabel = ElementBounds.Fixed(regionLockSwitch.fixedX + regionLockSwitch.fixedWidth + rowSpacing, regionBounds.fixedY + 4, lockLabelWidth, dropDownHeight - 8);
+
+                double globalY = regionBounds.fixedY + dropDownHeight + rowSpacing;
                 ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding, globalY, dropWidth, dropDownHeight);
-                ElementBounds globalLockLabel = ElementBounds.Fixed(sectionPadding, globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
-                ElementBounds globalLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
-                patternSection.WithChildren(regionBounds, regionLockLabel, regionLockSwitch, globalBounds, globalLockLabel, globalLockSwitch);
+                double globalLockY = globalBounds.fixedY + (dropDownHeight - switchHeight) / 2;
+                ElementBounds globalLockSwitch = ElementBounds.Fixed(globalBounds.fixedX + globalBounds.fixedWidth + rowSpacing, globalLockY, switchColumnWidth, switchHeight);
+                ElementBounds globalLockLabel = ElementBounds.Fixed(globalLockSwitch.fixedX + globalLockSwitch.fixedWidth + rowSpacing, globalBounds.fixedY + 4, lockLabelWidth, dropDownHeight - 8);
+
+                patternSection.WithChildren(regionBounds, regionLockSwitch, regionLockLabel, globalBounds, globalLockSwitch, globalLockLabel);
 
                 composer.AddDropDown(patternCodes, patternNames, GetSelectedIndex(patternCodes, currentOptions.CurrentPatternCode), OnPatternRegionSelectionChanged, regionBounds, PatternRegionDropdownKey);
-                composer.AddStaticText("Lock region pattern", bodyFont, regionLockLabel);
                 composer.AddSwitch(OnPatternRegionLockToggled, regionLockSwitch, PatternRegionLockSwitchKey);
+                composer.AddStaticText("Lock region pattern", bodyFont, regionLockLabel);
 
                 composer.AddDropDown(patternCodes, patternNames, GetSelectedIndex(patternCodes, currentOptions.CurrentPatternCode), OnPatternGlobalSelectionChanged, globalBounds, PatternGlobalDropdownKey);
-                composer.AddStaticText("Lock global pattern", bodyFont, globalLockLabel);
                 composer.AddSwitch(OnPatternGlobalLockToggled, globalLockSwitch, PatternGlobalLockSwitchKey);
+                composer.AddStaticText("Lock global pattern", bodyFont, globalLockLabel);
             }
             else
             {
@@ -323,23 +334,27 @@ namespace WeatherController
 
             if (eventEntries.Length > 0)
             {
-                double dropWidth = sectionWidth - 2 * sectionPadding;
+                double dropWidth = sectionWidth - 2 * sectionPadding - lockColumnWidth;
                 ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, eventOptionsStartY, dropWidth, dropDownHeight);
-                ElementBounds regionLockLabel = ElementBounds.Fixed(sectionPadding, regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
-                ElementBounds regionLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
-                double globalY = regionLockSwitch.fixedY + switchHeight + rowSpacing;
+                double regionLockY = regionBounds.fixedY + (dropDownHeight - switchHeight) / 2;
+                ElementBounds regionLockSwitch = ElementBounds.Fixed(regionBounds.fixedX + regionBounds.fixedWidth + rowSpacing, regionLockY, switchColumnWidth, switchHeight);
+                ElementBounds regionLockLabel = ElementBounds.Fixed(regionLockSwitch.fixedX + regionLockSwitch.fixedWidth + rowSpacing, regionBounds.fixedY + 4, lockLabelWidth, dropDownHeight - 8);
+
+                double globalY = regionBounds.fixedY + dropDownHeight + rowSpacing;
                 ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding, globalY, dropWidth, dropDownHeight);
-                ElementBounds globalLockLabel = ElementBounds.Fixed(sectionPadding, globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
-                ElementBounds globalLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
-                eventSection.WithChildren(regionBounds, regionLockLabel, regionLockSwitch, globalBounds, globalLockLabel, globalLockSwitch);
+                double globalLockY = globalBounds.fixedY + (dropDownHeight - switchHeight) / 2;
+                ElementBounds globalLockSwitch = ElementBounds.Fixed(globalBounds.fixedX + globalBounds.fixedWidth + rowSpacing, globalLockY, switchColumnWidth, switchHeight);
+                ElementBounds globalLockLabel = ElementBounds.Fixed(globalLockSwitch.fixedX + globalLockSwitch.fixedWidth + rowSpacing, globalBounds.fixedY + 4, lockLabelWidth, dropDownHeight - 8);
+
+                eventSection.WithChildren(regionBounds, regionLockSwitch, regionLockLabel, globalBounds, globalLockSwitch, globalLockLabel);
 
                 composer.AddDropDown(eventCodes, eventNames, GetSelectedIndex(eventCodes, currentOptions.CurrentEventCode), OnEventRegionSelectionChanged, regionBounds, EventRegionDropdownKey);
-                composer.AddStaticText("Lock region event", bodyFont, regionLockLabel);
                 composer.AddSwitch(OnEventRegionLockToggled, regionLockSwitch, EventRegionLockSwitchKey);
+                composer.AddStaticText("Lock region event", bodyFont, regionLockLabel);
 
                 composer.AddDropDown(eventCodes, eventNames, GetSelectedIndex(eventCodes, currentOptions.CurrentEventCode), OnEventGlobalSelectionChanged, globalBounds, EventGlobalDropdownKey);
-                composer.AddStaticText("Lock global event", bodyFont, globalLockLabel);
                 composer.AddSwitch(OnEventGlobalLockToggled, globalLockSwitch, EventGlobalLockSwitchKey);
+                composer.AddStaticText("Lock global event", bodyFont, globalLockLabel);
             }
             else
             {
@@ -355,14 +370,15 @@ namespace WeatherController
 
             if (windEntries.Length > 0)
             {
-                double dropWidth = sectionWidth - 2 * sectionPadding;
+                double dropWidth = sectionWidth - 2 * sectionPadding - lockColumnWidth;
                 ElementBounds windDropBounds = ElementBounds.Fixed(sectionPadding, windOptionsStartY, dropWidth, dropDownHeight);
-                ElementBounds windLockLabel = ElementBounds.Fixed(sectionPadding, windDropBounds.fixedY + windDropBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
-                ElementBounds windLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), windDropBounds.fixedY + windDropBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
-                windSection.WithChildren(windDropBounds, windLockLabel, windLockSwitch);
+                double windLockY = windDropBounds.fixedY + (dropDownHeight - switchHeight) / 2;
+                ElementBounds windLockSwitch = ElementBounds.Fixed(windDropBounds.fixedX + windDropBounds.fixedWidth + rowSpacing, windLockY, switchColumnWidth, switchHeight);
+                ElementBounds windLockLabel = ElementBounds.Fixed(windLockSwitch.fixedX + windLockSwitch.fixedWidth + rowSpacing, windDropBounds.fixedY + 4, lockLabelWidth, dropDownHeight - 8);
+                windSection.WithChildren(windDropBounds, windLockSwitch, windLockLabel);
                 composer.AddDropDown(windCodes, windNames, GetSelectedIndex(windCodes, currentOptions.CurrentWindCode), OnWindSelectionChanged, windDropBounds, WindDropdownKey);
-                composer.AddStaticText("Lock wind pattern", bodyFont, windLockLabel);
                 composer.AddSwitch(OnWindLockToggled, windLockSwitch, WindLockSwitchKey);
+                composer.AddStaticText("Lock wind pattern", bodyFont, windLockLabel);
             }
             else
             {
@@ -378,14 +394,15 @@ namespace WeatherController
 
             if (stormEntries.Length > 0)
             {
-                double dropWidth = sectionWidth - 2 * sectionPadding;
+                double dropWidth = sectionWidth - 2 * sectionPadding - lockColumnWidth;
                 ElementBounds stormDropBounds = ElementBounds.Fixed(sectionPadding, stormOptionsStartY, dropWidth, dropDownHeight);
-                ElementBounds stormLockLabel = ElementBounds.Fixed(sectionPadding, stormDropBounds.fixedY + stormDropBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
-                ElementBounds stormLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), stormDropBounds.fixedY + stormDropBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
-                stormSection.WithChildren(stormDropBounds, stormLockLabel, stormLockSwitch);
+                double stormLockY = stormDropBounds.fixedY + (dropDownHeight - switchHeight) / 2;
+                ElementBounds stormLockSwitch = ElementBounds.Fixed(stormDropBounds.fixedX + stormDropBounds.fixedWidth + rowSpacing, stormLockY, switchColumnWidth, switchHeight);
+                ElementBounds stormLockLabel = ElementBounds.Fixed(stormLockSwitch.fixedX + stormLockSwitch.fixedWidth + rowSpacing, stormDropBounds.fixedY + 4, lockLabelWidth, dropDownHeight - 8);
+                stormSection.WithChildren(stormDropBounds, stormLockSwitch, stormLockLabel);
                 composer.AddDropDown(stormCodes, stormNames, GetSelectedIndex(stormCodes, currentOptions.CurrentTemporalStormMode), OnStormModeSelectionChanged, stormDropBounds, StormDropdownKey);
-                composer.AddStaticText("Lock storm mode", bodyFont, stormLockLabel);
                 composer.AddSwitch(OnStormLockToggled, stormLockSwitch, StormLockSwitchKey);
+                composer.AddStaticText("Lock storm mode", bodyFont, stormLockLabel);
             }
             else
             {
@@ -394,6 +411,7 @@ namespace WeatherController
                 composer.AddStaticText("No temporal storm modes available.", bodyFont, messageBounds);
             }
 
+            composer.AddSmallButton("Summon storm", OnStormSummonClicked, stormSummonButton, EnumButtonStyle.Normal, StormSummonButtonKey);
             composer.AddSmallButton("End active storm", OnStormStopClicked, stormStopButton, EnumButtonStyle.Normal, StormStopButtonKey);
 
             composer
@@ -573,6 +591,13 @@ namespace WeatherController
             if (stormLockSwitch != null)
             {
                 stormLockSwitch.Enabled = canControl && stormCodes.Length > 0;
+            }
+
+            var summonButton = SingleComposer.GetButton(StormSummonButtonKey);
+            if (summonButton != null)
+            {
+                bool stormsEnabled = !string.Equals(currentOptions.CurrentTemporalStormMode, "off", StringComparison.OrdinalIgnoreCase);
+                summonButton.Enabled = !currentOptions.TemporalStormActive && canControl && stormsEnabled && stormCodes.Length > 0;
             }
 
             var stopButton = SingleComposer.GetButton(StormStopButtonKey);
@@ -774,6 +799,17 @@ namespace WeatherController
             }
 
             SendStormCommand(code);
+        }
+
+        private bool OnStormSummonClicked()
+        {
+            system.SendCommand(new WeatherControlCommand
+            {
+                Action = WeatherControlAction.StartTemporalStorm,
+                UpdateInstantly = true
+            });
+
+            return true;
         }
 
         private void SendPatternRegionCommand(string code)

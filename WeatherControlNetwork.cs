@@ -102,6 +102,7 @@ namespace WeatherController
         ClearPrecipitationOverride,
         RefreshOptions,
         SetTemporalStormMode,
+        StartTemporalStorm,
         EndTemporalStorm
     }
 

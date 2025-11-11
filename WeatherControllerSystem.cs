@@ -334,6 +334,9 @@ namespace WeatherController
                         }
                     }
                     break;
+                case WeatherControlAction.StartTemporalStorm:
+                    success = TryStartTemporalStorm(out message);
+                    break;
                 case WeatherControlAction.EndTemporalStorm:
                     success = TryEndActiveStorm(out message);
                     break;
@@ -703,6 +706,93 @@ namespace WeatherController
                 message = string.Format("Temporal storms set to {0}.", FormatStormModeName(normalized));
             }
 
+            return true;
+        }
+
+        private bool TryStartTemporalStorm(out string message)
+        {
+            SystemTemporalStability storms = sapi.ModLoader.GetModSystem<SystemTemporalStability>(false);
+            if (storms == null)
+            {
+                message = "Temporal storms system is not available.";
+                return false;
+            }
+
+            TemporalStormRunTimeData data = storms.StormData;
+            if (data == null)
+            {
+                message = "Temporal storm data is unavailable.";
+                return false;
+            }
+
+            if (data.nowStormActive)
+            {
+                message = "A temporal storm is already active.";
+                return false;
+            }
+
+            object stormsEnabledValue = GetStormField(storms, "stormsEnabled");
+            if (stormsEnabledValue is bool stormsEnabled && !stormsEnabled)
+            {
+                message = "Temporal storms are currently disabled.";
+                return false;
+            }
+
+            string currentMode = GetCurrentTemporalStormMode(storms);
+            if (string.Equals(currentMode, "off", StringComparison.OrdinalIgnoreCase))
+            {
+                message = "Temporal storms are currently disabled.";
+                return false;
+            }
+
+            IDictionary configs = GetStormConfigDictionary(storms);
+            if (configs == null || !configs.Contains(currentMode))
+            {
+                message = "Unable to resolve the temporal storm configuration.";
+                return false;
+            }
+
+            double durationMultiplier = sapi.World.Config.GetDecimal("tempstormDurationMul", 1.0);
+            double durationDays = (0.1 + data.nextStormStrDouble * 0.1) * durationMultiplier;
+            if (durationDays <= 0)
+            {
+                durationDays = 0.1 * durationMultiplier;
+            }
+
+            float glitchStrength = 0.53f + (float)sapi.World.Rand.NextDouble() / 10f;
+            if (data.nextStormStrength == EnumTempStormStrength.Medium)
+            {
+                glitchStrength = 0.67f + (float)sapi.World.Rand.NextDouble() / 10f;
+            }
+            else if (data.nextStormStrength == EnumTempStormStrength.Heavy)
+            {
+                glitchStrength = 0.9f + (float)sapi.World.Rand.NextDouble() / 10f;
+            }
+
+            data.stormGlitchStrength = glitchStrength;
+            data.nowStormActive = true;
+            data.stormDayNotify = 0;
+            data.stormActiveTotalDays = sapi.World.Calendar.TotalDays + durationDays;
+
+            if (sapi.World is IServerWorldAccessor serverWorld)
+            {
+                var stormMobCache = GetStormField(storms, "stormMobCache") as HashSet<AssetLocation>;
+                if (stormMobCache != null)
+                {
+                    foreach (Entity entity in serverWorld.LoadedEntities.Values.ToList())
+                    {
+                        if (stormMobCache.Contains(entity.Code))
+                        {
+                            entity.Attributes?.SetBool("ignoreDaylightFlee", true);
+                        }
+                    }
+                }
+            }
+
+            var serverChannel = GetStormField(storms, "serverChannel") as IServerNetworkChannel;
+            serverChannel?.BroadcastPacket(storms.StormData, Array.Empty<IServerPlayer>());
+
+            message = "Temporal storm summoned.";
             return true;
         }
 
