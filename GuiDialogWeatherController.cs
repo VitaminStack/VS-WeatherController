@@ -92,6 +92,11 @@ namespace WeatherController
         private string[] stormCodes = Array.Empty<string>();
         private string[] stormNames = Array.Empty<string>();
 
+        private WeatherOptionEntry[] patternEntries = Array.Empty<WeatherOptionEntry>();
+        private WeatherOptionEntry[] eventEntries = Array.Empty<WeatherOptionEntry>();
+        private WeatherOptionEntry[] windEntries = Array.Empty<WeatherOptionEntry>();
+        private WeatherOptionEntry[] stormEntries = Array.Empty<WeatherOptionEntry>();
+
         public GuiDialogWeatherController(ICoreClientAPI capi, WeatherControllerSystem system)
             : base("Weather Controller", capi)
         {
@@ -164,36 +169,37 @@ namespace WeatherController
             const double dialogOffsetY = 40;
             const double lockSpacing = 6;
 
-            WeatherOptionEntry[] patternOptions = GetValidOptions(currentOptions.WeatherPatterns);
-            WeatherOptionEntry[] eventOptions = GetValidOptions(currentOptions.WeatherEvents);
-            WeatherOptionEntry[] windOptions = GetValidOptions(currentOptions.WindPatterns);
-            WeatherOptionEntry[] stormOptions = GetValidOptions(currentOptions.TemporalStormModes);
+            patternEntries = GetValidOptions(currentOptions.WeatherPatterns);
+            eventEntries = GetValidOptions(currentOptions.WeatherEvents);
+            windEntries = GetValidOptions(currentOptions.WindPatterns);
+            stormEntries = GetValidOptions(currentOptions.TemporalStormModes);
 
-            patternCodes = patternOptions.Select(option => option.Code).ToArray();
-            patternNames = patternOptions.Select(GetOptionDisplayName).ToArray();
-            eventCodes = eventOptions.Select(option => option.Code).ToArray();
-            eventNames = eventOptions.Select(GetOptionDisplayName).ToArray();
-            windCodes = windOptions.Select(option => option.Code).ToArray();
-            windNames = windOptions.Select(GetOptionDisplayName).ToArray();
-            stormCodes = stormOptions.Select(option => option.Code).ToArray();
-            stormNames = stormOptions.Select(GetOptionDisplayName).ToArray();
+            patternCodes = patternEntries.Select(option => option.Code).ToArray();
+            patternNames = patternEntries.Select(GetOptionDisplayName).ToArray();
+            eventCodes = eventEntries.Select(option => option.Code).ToArray();
+            eventNames = eventEntries.Select(GetOptionDisplayName).ToArray();
+            windCodes = windEntries.Select(option => option.Code).ToArray();
+            windNames = windEntries.Select(GetOptionDisplayName).ToArray();
+            stormCodes = stormEntries.Select(option => option.Code).ToArray();
+            stormNames = stormEntries.Select(GetOptionDisplayName).ToArray();
 
-            double patternContentHeight = patternOptions.Length > 0
+            double patternContentHeight = patternEntries.Length > 0
                 ? 2 * (dropDownHeight + lockSpacing + switchHeight) + rowSpacing
                 : infoTextHeight;
-            double eventContentHeight = eventOptions.Length > 0
+            double eventContentHeight = eventEntries.Length > 0
                 ? 2 * (dropDownHeight + lockSpacing + switchHeight) + rowSpacing
                 : infoTextHeight;
-            double windContentHeight = windOptions.Length > 0
+            double windContentHeight = windEntries.Length > 0
                 ? dropDownHeight + lockSpacing + switchHeight
                 : infoTextHeight;
-            double stormContentHeight = stormOptions.Length > 0
+            double stormContentHeight = stormEntries.Length > 0
                 ? dropDownHeight + lockSpacing + switchHeight
                 : infoTextHeight;
 
+            double contentTopOffset = GuiStyle.TitleBarHeight + sectionPadding;
             double currentY = 0;
 
-            ElementBounds contentBounds = ElementBounds.Fixed(0, 0, sectionWidth, 0);
+            ElementBounds contentBounds = ElementBounds.Fixed(0, contentTopOffset, sectionWidth, 0);
             contentBounds.BothSizing = ElementSizing.Fixed;
 
             ElementBounds backgroundBounds = ElementStdBounds.DialogBackground()
@@ -226,6 +232,11 @@ namespace WeatherController
 
             contentBounds.WithChildren(patternSection, eventSection, windSection, stormSection, autoSection, precipSection);
             contentBounds.fixedHeight = currentY;
+
+            string patternCurrentLabelText = BuildPatternCurrentLabelText(currentOptions);
+            string eventCurrentLabelText = BuildEventCurrentLabelText(currentOptions);
+            string windCurrentLabelText = BuildWindCurrentLabelText(currentOptions);
+            string stormCurrentLabelText = BuildStormCurrentLabelText(currentOptions);
 
             ElementBounds patternLabel = ElementBounds.Fixed(sectionPadding, sectionPadding, sectionWidth - 2 * sectionPadding, headingHeight);
             ElementBounds patternCurrentLabel = ElementBounds.Fixed(sectionPadding, patternLabel.fixedY + patternLabel.fixedHeight + rowSpacing, sectionWidth - 2 * sectionPadding, infoTextHeight);
@@ -274,9 +285,9 @@ namespace WeatherController
                 .BeginChildElements(contentBounds)
                 .AddInset(patternSection, 6, 0.8f)
                 .AddStaticText("Weather pattern", headingFont, patternLabel)
-                .AddStaticText("Current: -", bodyFont, patternCurrentLabel, PatternCurrentLabelKey);
+                .AddStaticText(patternCurrentLabelText, bodyFont, patternCurrentLabel, PatternCurrentLabelKey);
 
-            if (patternOptions.Length > 0)
+            if (patternEntries.Length > 0)
             {
                 double dropWidth = sectionWidth - 2 * sectionPadding;
                 ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, patternOptionsStartY, dropWidth, dropDownHeight);
@@ -308,9 +319,9 @@ namespace WeatherController
                 .AddStaticText("Weather event", headingFont, eventLabel)
                 .AddStaticText("Allow event to end automatically", bodyFont, allowStopLabel)
                 .AddSwitch(OnAllowStopToggled, allowStopSwitch, AllowStopSwitchKey)
-                .AddStaticText("Current: -", bodyFont, eventCurrentLabel, EventCurrentLabelKey);
+                .AddStaticText(eventCurrentLabelText, bodyFont, eventCurrentLabel, EventCurrentLabelKey);
 
-            if (eventOptions.Length > 0)
+            if (eventEntries.Length > 0)
             {
                 double dropWidth = sectionWidth - 2 * sectionPadding;
                 ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, eventOptionsStartY, dropWidth, dropDownHeight);
@@ -340,9 +351,9 @@ namespace WeatherController
             composer
                 .AddInset(windSection, 6, 0.8f)
                 .AddStaticText("Wind pattern", headingFont, windLabel)
-                .AddStaticText("Current: -", bodyFont, windCurrentLabel, WindCurrentLabelKey);
+                .AddStaticText(windCurrentLabelText, bodyFont, windCurrentLabel, WindCurrentLabelKey);
 
-            if (windOptions.Length > 0)
+            if (windEntries.Length > 0)
             {
                 double dropWidth = sectionWidth - 2 * sectionPadding;
                 ElementBounds windDropBounds = ElementBounds.Fixed(sectionPadding, windOptionsStartY, dropWidth, dropDownHeight);
@@ -363,9 +374,9 @@ namespace WeatherController
             composer
                 .AddInset(stormSection, 6, 0.8f)
                 .AddStaticText("Temporal storms", headingFont, stormLabel)
-                .AddStaticText("Mode: -", bodyFont, stormCurrentLabel, StormCurrentLabelKey);
+                .AddStaticText(stormCurrentLabelText, bodyFont, stormCurrentLabel, StormCurrentLabelKey);
 
-            if (stormOptions.Length > 0)
+            if (stormEntries.Length > 0)
             {
                 double dropWidth = sectionWidth - 2 * sectionPadding;
                 ElementBounds stormDropBounds = ElementBounds.Fixed(sectionPadding, stormOptionsStartY, dropWidth, dropDownHeight);
@@ -894,38 +905,64 @@ namespace WeatherController
 
         private void UpdateCurrentLabels(WeatherOptionsPacket packet)
         {
+            WeatherOptionsPacket source = packet ?? currentOptions ?? new WeatherOptionsPacket();
+
             var patternLabel = SingleComposer.GetStaticText(PatternCurrentLabelKey);
             if (patternLabel != null)
             {
-                patternLabel.SetValue($"Current: {FormatCurrentValue(packet.WeatherPatterns, packet.CurrentPatternCode, "None")}");
+                patternLabel.SetValue(BuildPatternCurrentLabelText(source));
             }
 
             var eventLabel = SingleComposer.GetStaticText(EventCurrentLabelKey);
             if (eventLabel != null)
             {
-                string eventText = FormatCurrentValue(packet.WeatherEvents, packet.CurrentEventCode, "None");
-                string allowStopText = string.Empty;
-                if (!string.IsNullOrEmpty(packet.CurrentEventCode))
-                {
-                    bool allowStop = packet.CurrentEventAllowStop ?? true;
-                    allowStopText = $" (Allow stop: {(allowStop ? "Yes" : "No")})";
-                }
-                eventLabel.SetValue($"Current: {eventText}{allowStopText}");
+                eventLabel.SetValue(BuildEventCurrentLabelText(source));
             }
 
             var windLabel = SingleComposer.GetStaticText(WindCurrentLabelKey);
             if (windLabel != null)
             {
-                windLabel.SetValue($"Current: {FormatCurrentValue(packet.WindPatterns, packet.CurrentWindCode, "None")}");
+                windLabel.SetValue(BuildWindCurrentLabelText(source));
             }
 
             var stormLabel = SingleComposer.GetStaticText(StormCurrentLabelKey);
             if (stormLabel != null)
             {
-                string mode = FormatCurrentValue(packet.TemporalStormModes, packet.CurrentTemporalStormMode, "Off");
-                string status = packet.TemporalStormActive ? "Active" : "Inactive";
-                stormLabel.SetValue($"Mode: {mode} (Status: {status})");
+                stormLabel.SetValue(BuildStormCurrentLabelText(source));
             }
+        }
+
+        private string BuildPatternCurrentLabelText(WeatherOptionsPacket packet)
+        {
+            string code = packet?.CurrentPatternCode;
+            return $"Current: {FormatCurrentValue(patternEntries, code, "None")}";
+        }
+
+        private string BuildEventCurrentLabelText(WeatherOptionsPacket packet)
+        {
+            string code = packet?.CurrentEventCode;
+            string eventText = FormatCurrentValue(eventEntries, code, "None");
+            if (!string.IsNullOrEmpty(code))
+            {
+                bool allowStop = packet?.CurrentEventAllowStop ?? true;
+                eventText += $" (Allow stop: {(allowStop ? "Yes" : "No")})";
+            }
+
+            return $"Current: {eventText}";
+        }
+
+        private string BuildWindCurrentLabelText(WeatherOptionsPacket packet)
+        {
+            string code = packet?.CurrentWindCode;
+            return $"Current: {FormatCurrentValue(windEntries, code, "None")}";
+        }
+
+        private string BuildStormCurrentLabelText(WeatherOptionsPacket packet)
+        {
+            string code = packet?.CurrentTemporalStormMode;
+            string mode = FormatCurrentValue(stormEntries, code, "Off");
+            string status = packet?.TemporalStormActive == true ? "Active" : "Inactive";
+            return $"Mode: {mode} (Status: {status})";
         }
 
         private static WeatherOptionEntry[] GetValidOptions(WeatherOptionEntry[] options)
