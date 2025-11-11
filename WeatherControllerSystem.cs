@@ -231,6 +231,9 @@ namespace WeatherController
                 case WeatherControlAction.SetTemporalStormMode:
                     success = TrySetTemporalStormMode(command.Code, out message);
                     break;
+                case WeatherControlAction.EndTemporalStorm:
+                    success = TryEndActiveStorm(out message);
+                    break;
                 default:
                     message = "Unknown weather controller action.";
                     break;
@@ -346,6 +349,7 @@ namespace WeatherController
             {
                 packet.TemporalStormModes = GetTemporalStormOptions(storms);
                 packet.CurrentTemporalStormMode = GetCurrentTemporalStormMode(storms);
+                packet.TemporalStormActive = storms.StormData?.nowStormActive == true;
             }
 
             bool hasPrivilege = player.HasPrivilege(Privilege.controlserver) || player.HasPrivilege(Privilege.root);
@@ -465,6 +469,58 @@ namespace WeatherController
                 message = string.Format("Temporal storms set to {0}.", FormatStormModeName(normalized));
             }
 
+            return true;
+        }
+
+        private bool TryEndActiveStorm(out string message)
+        {
+            SystemTemporalStability storms = sapi.ModLoader.GetModSystem<SystemTemporalStability>(false);
+            if (storms == null)
+            {
+                message = "Temporal storms system is not available.";
+                return false;
+            }
+
+            var data = storms.StormData;
+            if (data == null || !data.nowStormActive)
+            {
+                message = "No temporal storm is currently active.";
+                return false;
+            }
+
+            data.stormGlitchStrength = 0f;
+            data.nowStormActive = false;
+            data.stormDayNotify = 99;
+            data.stormActiveTotalDays = sapi.World.Calendar.TotalDays;
+
+            if (sapi.World is IServerWorldAccessor serverWorld)
+            {
+                var stormMobCache = GetStormField(storms, "stormMobCache") as HashSet<AssetLocation>;
+                if (stormMobCache != null)
+                {
+                    foreach (Entity entity in serverWorld.LoadedEntities.Values.ToList())
+                    {
+                        if (stormMobCache.Contains(entity.Code))
+                        {
+                            entity.Attributes?.RemoveAttribute("ignoreDaylightFlee");
+                            if (sapi.World.Rand.NextDouble() < 0.5)
+                            {
+                                sapi.World.DespawnEntity(entity, new EntityDespawnData
+                                {
+                                    Reason = EnumDespawnReason.Expire
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            InvokeStormMethod(storms, "prepareNextStorm");
+
+            var serverChannel = GetStormField(storms, "serverChannel") as IServerNetworkChannel;
+            serverChannel?.BroadcastPacket(storms.StormData, Array.Empty<IServerPlayer>());
+
+            message = "Temporal storm ended.";
             return true;
         }
 
