@@ -1,0 +1,9 @@
+{
+  "type": "code",
+  "modid": "weathercontroller",
+  "name": "Weather Controller",
+  "description": "Provides an in-game GUI for adjusting weather conditions on demand.",
+  "authors": ["Weather Controller Team"],
+  "version": "1.0.0",
+  "side": "Universal"
+}
