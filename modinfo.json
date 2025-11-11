@@ -4,7 +4,7 @@
   "name": "Weather Controller",
   "description": "Provides an in-game GUI for adjusting weather conditions on demand.",
   "authors": [ "Vitaminstack" ],
-  "version": "1.0.0",
+  "version": "1.0.2",
   "side": "Universal",
   "dependencies": {
     "game": "1.21.0"
