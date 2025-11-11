@@ -24,6 +24,12 @@ namespace WeatherController
         private const string WindDropdownKey = "wc-wind";
         private const string StormDropdownKey = "wc-storm";
         private const string StormStopButtonKey = "wc-storm-stop";
+        private const string PatternRegionLockSwitchKey = "wc-pattern-region-lock";
+        private const string PatternGlobalLockSwitchKey = "wc-pattern-global-lock";
+        private const string EventRegionLockSwitchKey = "wc-event-region-lock";
+        private const string EventGlobalLockSwitchKey = "wc-event-global-lock";
+        private const string WindLockSwitchKey = "wc-wind-lock";
+        private const string StormLockSwitchKey = "wc-storm-lock";
 
         private static readonly double[] DefaultLightBgColor =
         {
@@ -70,6 +76,12 @@ namespace WeatherController
         private bool selectedAllowStop = true;
         private bool selectedAutoChange;
         private float selectedPrecipitation;
+        private bool lockRegionPattern;
+        private bool lockGlobalPattern;
+        private bool lockRegionEvent;
+        private bool lockGlobalEvent;
+        private bool lockWind;
+        private bool lockStorm;
 
         private string[] patternCodes = Array.Empty<string>();
         private string[] patternNames = Array.Empty<string>();
@@ -150,6 +162,7 @@ namespace WeatherController
             const double controlHeight = 32;
             const double actionWidth = 120;
             const double dialogOffsetY = 40;
+            const double lockSpacing = 6;
 
             WeatherOptionEntry[] patternOptions = GetValidOptions(currentOptions.WeatherPatterns);
             WeatherOptionEntry[] eventOptions = GetValidOptions(currentOptions.WeatherEvents);
@@ -165,10 +178,18 @@ namespace WeatherController
             stormCodes = stormOptions.Select(option => option.Code).ToArray();
             stormNames = stormOptions.Select(GetOptionDisplayName).ToArray();
 
-            double patternContentHeight = patternOptions.Length > 0 ? dropDownHeight * 2 + rowSpacing : infoTextHeight;
-            double eventContentHeight = eventOptions.Length > 0 ? dropDownHeight * 2 + rowSpacing : infoTextHeight;
-            double windContentHeight = windOptions.Length > 0 ? dropDownHeight : infoTextHeight;
-            double stormContentHeight = stormOptions.Length > 0 ? dropDownHeight : infoTextHeight;
+            double patternContentHeight = patternOptions.Length > 0
+                ? 2 * (dropDownHeight + lockSpacing + switchHeight) + rowSpacing
+                : infoTextHeight;
+            double eventContentHeight = eventOptions.Length > 0
+                ? 2 * (dropDownHeight + lockSpacing + switchHeight) + rowSpacing
+                : infoTextHeight;
+            double windContentHeight = windOptions.Length > 0
+                ? dropDownHeight + lockSpacing + switchHeight
+                : infoTextHeight;
+            double stormContentHeight = stormOptions.Length > 0
+                ? dropDownHeight + lockSpacing + switchHeight
+                : infoTextHeight;
 
             double currentY = 0;
 
@@ -257,12 +278,23 @@ namespace WeatherController
 
             if (patternOptions.Length > 0)
             {
-                ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, patternOptionsStartY, sectionWidth - 2 * sectionPadding, dropDownHeight);
-                ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding, regionBounds.fixedY + regionBounds.fixedHeight + rowSpacing, sectionWidth - 2 * sectionPadding, dropDownHeight);
-                patternSection.WithChildren(regionBounds, globalBounds);
+                double dropWidth = sectionWidth - 2 * sectionPadding;
+                ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, patternOptionsStartY, dropWidth, dropDownHeight);
+                ElementBounds regionLockLabel = ElementBounds.Fixed(sectionPadding, regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
+                ElementBounds regionLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
+                double globalY = regionLockSwitch.fixedY + switchHeight + rowSpacing;
+                ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding, globalY, dropWidth, dropDownHeight);
+                ElementBounds globalLockLabel = ElementBounds.Fixed(sectionPadding, globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
+                ElementBounds globalLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
+                patternSection.WithChildren(regionBounds, regionLockLabel, regionLockSwitch, globalBounds, globalLockLabel, globalLockSwitch);
 
                 composer.AddDropDown(patternCodes, patternNames, GetSelectedIndex(patternCodes, currentOptions.CurrentPatternCode), OnPatternRegionSelectionChanged, regionBounds, PatternRegionDropdownKey);
+                composer.AddStaticText("Lock region pattern", bodyFont, regionLockLabel);
+                composer.AddSwitch(OnPatternRegionLockToggled, regionLockSwitch, PatternRegionLockSwitchKey);
+
                 composer.AddDropDown(patternCodes, patternNames, GetSelectedIndex(patternCodes, currentOptions.CurrentPatternCode), OnPatternGlobalSelectionChanged, globalBounds, PatternGlobalDropdownKey);
+                composer.AddStaticText("Lock global pattern", bodyFont, globalLockLabel);
+                composer.AddSwitch(OnPatternGlobalLockToggled, globalLockSwitch, PatternGlobalLockSwitchKey);
             }
             else
             {
@@ -280,12 +312,23 @@ namespace WeatherController
 
             if (eventOptions.Length > 0)
             {
-                ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, eventOptionsStartY, sectionWidth - 2 * sectionPadding, dropDownHeight);
-                ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding, regionBounds.fixedY + regionBounds.fixedHeight + rowSpacing, sectionWidth - 2 * sectionPadding, dropDownHeight);
-                eventSection.WithChildren(regionBounds, globalBounds);
+                double dropWidth = sectionWidth - 2 * sectionPadding;
+                ElementBounds regionBounds = ElementBounds.Fixed(sectionPadding, eventOptionsStartY, dropWidth, dropDownHeight);
+                ElementBounds regionLockLabel = ElementBounds.Fixed(sectionPadding, regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
+                ElementBounds regionLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), regionBounds.fixedY + regionBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
+                double globalY = regionLockSwitch.fixedY + switchHeight + rowSpacing;
+                ElementBounds globalBounds = ElementBounds.Fixed(sectionPadding, globalY, dropWidth, dropDownHeight);
+                ElementBounds globalLockLabel = ElementBounds.Fixed(sectionPadding, globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
+                ElementBounds globalLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), globalBounds.fixedY + globalBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
+                eventSection.WithChildren(regionBounds, regionLockLabel, regionLockSwitch, globalBounds, globalLockLabel, globalLockSwitch);
 
                 composer.AddDropDown(eventCodes, eventNames, GetSelectedIndex(eventCodes, currentOptions.CurrentEventCode), OnEventRegionSelectionChanged, regionBounds, EventRegionDropdownKey);
+                composer.AddStaticText("Lock region event", bodyFont, regionLockLabel);
+                composer.AddSwitch(OnEventRegionLockToggled, regionLockSwitch, EventRegionLockSwitchKey);
+
                 composer.AddDropDown(eventCodes, eventNames, GetSelectedIndex(eventCodes, currentOptions.CurrentEventCode), OnEventGlobalSelectionChanged, globalBounds, EventGlobalDropdownKey);
+                composer.AddStaticText("Lock global event", bodyFont, globalLockLabel);
+                composer.AddSwitch(OnEventGlobalLockToggled, globalLockSwitch, EventGlobalLockSwitchKey);
             }
             else
             {
@@ -301,9 +344,14 @@ namespace WeatherController
 
             if (windOptions.Length > 0)
             {
-                ElementBounds windDropBounds = ElementBounds.Fixed(sectionPadding, windOptionsStartY, sectionWidth - 2 * sectionPadding, dropDownHeight);
-                windSection.WithChild(windDropBounds);
+                double dropWidth = sectionWidth - 2 * sectionPadding;
+                ElementBounds windDropBounds = ElementBounds.Fixed(sectionPadding, windOptionsStartY, dropWidth, dropDownHeight);
+                ElementBounds windLockLabel = ElementBounds.Fixed(sectionPadding, windDropBounds.fixedY + windDropBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
+                ElementBounds windLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), windDropBounds.fixedY + windDropBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
+                windSection.WithChildren(windDropBounds, windLockLabel, windLockSwitch);
                 composer.AddDropDown(windCodes, windNames, GetSelectedIndex(windCodes, currentOptions.CurrentWindCode), OnWindSelectionChanged, windDropBounds, WindDropdownKey);
+                composer.AddStaticText("Lock wind pattern", bodyFont, windLockLabel);
+                composer.AddSwitch(OnWindLockToggled, windLockSwitch, WindLockSwitchKey);
             }
             else
             {
@@ -319,9 +367,14 @@ namespace WeatherController
 
             if (stormOptions.Length > 0)
             {
-                ElementBounds stormDropBounds = ElementBounds.Fixed(sectionPadding, stormOptionsStartY, sectionWidth - 2 * sectionPadding, dropDownHeight);
-                stormSection.WithChild(stormDropBounds);
+                double dropWidth = sectionWidth - 2 * sectionPadding;
+                ElementBounds stormDropBounds = ElementBounds.Fixed(sectionPadding, stormOptionsStartY, dropWidth, dropDownHeight);
+                ElementBounds stormLockLabel = ElementBounds.Fixed(sectionPadding, stormDropBounds.fixedY + stormDropBounds.fixedHeight + lockSpacing + 2, dropWidth - (switchHeight + 10), switchHeight);
+                ElementBounds stormLockSwitch = ElementBounds.Fixed(sectionWidth - sectionPadding - (switchHeight + 10), stormDropBounds.fixedY + stormDropBounds.fixedHeight + lockSpacing, switchHeight + 10, switchHeight);
+                stormSection.WithChildren(stormDropBounds, stormLockLabel, stormLockSwitch);
                 composer.AddDropDown(stormCodes, stormNames, GetSelectedIndex(stormCodes, currentOptions.CurrentTemporalStormMode), OnStormModeSelectionChanged, stormDropBounds, StormDropdownKey);
+                composer.AddStaticText("Lock storm mode", bodyFont, stormLockLabel);
+                composer.AddSwitch(OnStormLockToggled, stormLockSwitch, StormLockSwitchKey);
             }
             else
             {
@@ -406,6 +459,24 @@ namespace WeatherController
             var slider = SingleComposer.GetSlider(PrecipSliderKey);
             slider?.SetValues((int)Math.Round(selectedPrecipitation * 100f), -100, 100, 5, "%");
 
+            lockRegionPattern = packet.RegionPatternLocked;
+            SingleComposer.GetSwitch(PatternRegionLockSwitchKey)?.SetValue(lockRegionPattern);
+
+            lockGlobalPattern = packet.GlobalPatternLocked;
+            SingleComposer.GetSwitch(PatternGlobalLockSwitchKey)?.SetValue(lockGlobalPattern);
+
+            lockRegionEvent = packet.RegionEventLocked;
+            SingleComposer.GetSwitch(EventRegionLockSwitchKey)?.SetValue(lockRegionEvent);
+
+            lockGlobalEvent = packet.GlobalEventLocked;
+            SingleComposer.GetSwitch(EventGlobalLockSwitchKey)?.SetValue(lockGlobalEvent);
+
+            lockWind = packet.WindLocked;
+            SingleComposer.GetSwitch(WindLockSwitchKey)?.SetValue(lockWind);
+
+            lockStorm = packet.TemporalStormLocked;
+            SingleComposer.GetSwitch(StormLockSwitchKey)?.SetValue(lockStorm);
+
             UpdateCurrentLabels(packet);
             UpdateDropdownSelections(packet);
             UpdateControlStates();
@@ -427,10 +498,22 @@ namespace WeatherController
                 patternRegionDropdown.Enabled = regionAvailable && patternCodes.Length > 0;
             }
 
+            var patternRegionLockSwitch = SingleComposer.GetSwitch(PatternRegionLockSwitchKey);
+            if (patternRegionLockSwitch != null)
+            {
+                patternRegionLockSwitch.Enabled = regionAvailable && patternCodes.Length > 0;
+            }
+
             var patternGlobalDropdown = SingleComposer.GetDropDown(PatternGlobalDropdownKey);
             if (patternGlobalDropdown != null)
             {
                 patternGlobalDropdown.Enabled = canControl && patternCodes.Length > 0;
+            }
+
+            var patternGlobalLockSwitch = SingleComposer.GetSwitch(PatternGlobalLockSwitchKey);
+            if (patternGlobalLockSwitch != null)
+            {
+                patternGlobalLockSwitch.Enabled = canControl && patternCodes.Length > 0;
             }
 
             var eventRegionDropdown = SingleComposer.GetDropDown(EventRegionDropdownKey);
@@ -439,10 +522,22 @@ namespace WeatherController
                 eventRegionDropdown.Enabled = regionAvailable && eventCodes.Length > 0;
             }
 
+            var eventRegionLockSwitch = SingleComposer.GetSwitch(EventRegionLockSwitchKey);
+            if (eventRegionLockSwitch != null)
+            {
+                eventRegionLockSwitch.Enabled = regionAvailable && eventCodes.Length > 0;
+            }
+
             var eventGlobalDropdown = SingleComposer.GetDropDown(EventGlobalDropdownKey);
             if (eventGlobalDropdown != null)
             {
                 eventGlobalDropdown.Enabled = canControl && eventCodes.Length > 0;
+            }
+
+            var eventGlobalLockSwitch = SingleComposer.GetSwitch(EventGlobalLockSwitchKey);
+            if (eventGlobalLockSwitch != null)
+            {
+                eventGlobalLockSwitch.Enabled = canControl && eventCodes.Length > 0;
             }
 
             var windDropdown = SingleComposer.GetDropDown(WindDropdownKey);
@@ -451,16 +546,29 @@ namespace WeatherController
                 windDropdown.Enabled = canControl && windCodes.Length > 0;
             }
 
+            var windLockSwitch = SingleComposer.GetSwitch(WindLockSwitchKey);
+            if (windLockSwitch != null)
+            {
+                windLockSwitch.Enabled = canControl && windCodes.Length > 0;
+            }
+
             var stormDropdown = SingleComposer.GetDropDown(StormDropdownKey);
             if (stormDropdown != null)
             {
                 stormDropdown.Enabled = canControl && stormCodes.Length > 0;
             }
 
+            var stormLockSwitch = SingleComposer.GetSwitch(StormLockSwitchKey);
+            if (stormLockSwitch != null)
+            {
+                stormLockSwitch.Enabled = canControl && stormCodes.Length > 0;
+            }
+
             var stopButton = SingleComposer.GetButton(StormStopButtonKey);
             if (stopButton != null)
             {
-                stopButton.Enabled = canControl && currentOptions.TemporalStormActive;
+                bool canStop = currentOptions.TemporalStormActive && (canControl || !currentOptions.HasControlPrivilege);
+                stopButton.Enabled = canStop;
             }
 
             var allowStopSwitch = SingleComposer.GetSwitch(AllowStopSwitchKey);
@@ -537,7 +645,65 @@ namespace WeatherController
             selectedAutoChange = on;
         }
 
+        private void OnPatternRegionLockToggled(bool on)
+        {
+            lockRegionPattern = on;
+            string code = currentOptions.CurrentPatternCode;
+            if (!string.IsNullOrEmpty(code))
+            {
+                SendPatternRegionCommand(code);
+            }
+        }
 
+        private void OnPatternGlobalLockToggled(bool on)
+        {
+            lockGlobalPattern = on;
+            string code = currentOptions.CurrentPatternCode;
+            if (!string.IsNullOrEmpty(code))
+            {
+                SendPatternGlobalCommand(code);
+            }
+        }
+
+        private void OnEventRegionLockToggled(bool on)
+        {
+            lockRegionEvent = on;
+            string code = currentOptions.CurrentEventCode;
+            if (!string.IsNullOrEmpty(code))
+            {
+                SendEventRegionCommand(code);
+            }
+        }
+
+        private void OnEventGlobalLockToggled(bool on)
+        {
+            lockGlobalEvent = on;
+            string code = currentOptions.CurrentEventCode;
+            if (!string.IsNullOrEmpty(code))
+            {
+                SendEventGlobalCommand(code);
+            }
+        }
+
+        private void OnWindLockToggled(bool on)
+        {
+            lockWind = on;
+            string code = currentOptions.CurrentWindCode;
+            if (!string.IsNullOrEmpty(code))
+            {
+                SendWindCommand(code);
+            }
+        }
+
+        private void OnStormLockToggled(bool on)
+        {
+            lockStorm = on;
+            string code = currentOptions.CurrentTemporalStormMode;
+            if (!string.IsNullOrEmpty(code))
+            {
+                SendStormCommand(code);
+            }
+        }
 
         private void OnPatternRegionSelectionChanged(string code, bool selected)
         {
@@ -546,12 +712,7 @@ namespace WeatherController
                 return;
             }
 
-            system.SendCommand(new WeatherControlCommand
-            {
-                Action = WeatherControlAction.SetRegionPattern,
-                Code = code,
-                UpdateInstantly = true
-            });
+            SendPatternRegionCommand(code);
         }
 
         private void OnPatternGlobalSelectionChanged(string code, bool selected)
@@ -561,12 +722,7 @@ namespace WeatherController
                 return;
             }
 
-            system.SendCommand(new WeatherControlCommand
-            {
-                Action = WeatherControlAction.SetGlobalPattern,
-                Code = code,
-                UpdateInstantly = true
-            });
+            SendPatternGlobalCommand(code);
         }
 
         private void OnEventRegionSelectionChanged(string code, bool selected)
@@ -576,14 +732,7 @@ namespace WeatherController
                 return;
             }
 
-            system.SendCommand(new WeatherControlCommand
-            {
-                Action = WeatherControlAction.SetRegionEvent,
-                Code = code,
-                UpdateInstantly = true,
-                UseAllowStop = true,
-                AllowStop = selectedAllowStop
-            });
+            SendEventRegionCommand(code);
         }
 
         private void OnEventGlobalSelectionChanged(string code, bool selected)
@@ -593,14 +742,7 @@ namespace WeatherController
                 return;
             }
 
-            system.SendCommand(new WeatherControlCommand
-            {
-                Action = WeatherControlAction.SetGlobalEvent,
-                Code = code,
-                UpdateInstantly = true,
-                UseAllowStop = true,
-                AllowStop = selectedAllowStop
-            });
+            SendEventGlobalCommand(code);
         }
 
         private void OnWindSelectionChanged(string code, bool selected)
@@ -610,12 +752,7 @@ namespace WeatherController
                 return;
             }
 
-            system.SendCommand(new WeatherControlCommand
-            {
-                Action = WeatherControlAction.SetGlobalWind,
-                Code = code,
-                UpdateInstantly = true
-            });
+            SendWindCommand(code);
         }
 
         private void OnStormModeSelectionChanged(string code, bool selected)
@@ -625,10 +762,81 @@ namespace WeatherController
                 return;
             }
 
+            SendStormCommand(code);
+        }
+
+        private void SendPatternRegionCommand(string code)
+        {
+            system.SendCommand(new WeatherControlCommand
+            {
+                Action = WeatherControlAction.SetRegionPattern,
+                Code = code,
+                UpdateInstantly = true,
+                UseSelectionLock = true,
+                SelectionLocked = lockRegionPattern
+            });
+        }
+
+        private void SendPatternGlobalCommand(string code)
+        {
+            system.SendCommand(new WeatherControlCommand
+            {
+                Action = WeatherControlAction.SetGlobalPattern,
+                Code = code,
+                UpdateInstantly = true,
+                UseSelectionLock = true,
+                SelectionLocked = lockGlobalPattern
+            });
+        }
+
+        private void SendEventRegionCommand(string code)
+        {
+            system.SendCommand(new WeatherControlCommand
+            {
+                Action = WeatherControlAction.SetRegionEvent,
+                Code = code,
+                UpdateInstantly = true,
+                UseAllowStop = true,
+                AllowStop = selectedAllowStop,
+                UseSelectionLock = true,
+                SelectionLocked = lockRegionEvent
+            });
+        }
+
+        private void SendEventGlobalCommand(string code)
+        {
+            system.SendCommand(new WeatherControlCommand
+            {
+                Action = WeatherControlAction.SetGlobalEvent,
+                Code = code,
+                UpdateInstantly = true,
+                UseAllowStop = true,
+                AllowStop = selectedAllowStop,
+                UseSelectionLock = true,
+                SelectionLocked = lockGlobalEvent
+            });
+        }
+
+        private void SendWindCommand(string code)
+        {
+            system.SendCommand(new WeatherControlCommand
+            {
+                Action = WeatherControlAction.SetGlobalWind,
+                Code = code,
+                UpdateInstantly = true,
+                UseSelectionLock = true,
+                SelectionLocked = lockWind
+            });
+        }
+
+        private void SendStormCommand(string code)
+        {
             system.SendCommand(new WeatherControlCommand
             {
                 Action = WeatherControlAction.SetTemporalStormMode,
-                Code = code
+                Code = code,
+                UseSelectionLock = true,
+                SelectionLocked = lockStorm
             });
         }
 

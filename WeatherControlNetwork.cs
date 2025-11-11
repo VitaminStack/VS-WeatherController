@@ -69,6 +69,24 @@ namespace WeatherController
 
         [ProtoMember(16)]
         public bool TemporalStormActive { get; set; }
+
+        [ProtoMember(17)]
+        public bool RegionPatternLocked { get; set; }
+
+        [ProtoMember(18)]
+        public bool GlobalPatternLocked { get; set; }
+
+        [ProtoMember(19)]
+        public bool RegionEventLocked { get; set; }
+
+        [ProtoMember(20)]
+        public bool GlobalEventLocked { get; set; }
+
+        [ProtoMember(21)]
+        public bool WindLocked { get; set; }
+
+        [ProtoMember(22)]
+        public bool TemporalStormLocked { get; set; }
     }
 
     public enum WeatherControlAction
@@ -116,5 +134,11 @@ namespace WeatherController
 
         [ProtoMember(9)]
         public bool UpdateInstantly { get; set; }
+
+        [ProtoMember(10)]
+        public bool SelectionLocked { get; set; }
+
+        [ProtoMember(11)]
+        public bool UseSelectionLock { get; set; }
     }
 }

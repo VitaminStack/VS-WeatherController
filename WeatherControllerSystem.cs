@@ -24,6 +24,11 @@ namespace WeatherController
         private IClientNetworkChannel clientChannel;
         private IServerNetworkChannel serverChannel;
         private GuiDialogWeatherController dialog;
+        private readonly Dictionary<long, RegionLockState> regionLocks = new Dictionary<long, RegionLockState>();
+        private readonly GlobalLockState globalLock = new GlobalLockState();
+        private bool stormLocked;
+        private string stormLockMode;
+        private string defaultStormMode;
 
         public override void Start(ICoreAPI api)
         {
@@ -51,6 +56,14 @@ namespace WeatherController
             serverChannel = api.Network.GetChannel(ChannelCode)
                 .SetMessageHandler<WeatherOptionsRequest>(OnOptionsRequested)
                 .SetMessageHandler<WeatherControlCommand>(OnControlCommand);
+
+            var storms = api.ModLoader.GetModSystem<SystemTemporalStability>(false);
+            if (storms != null)
+            {
+                defaultStormMode = GetCurrentTemporalStormMode(storms);
+            }
+
+            api.Event.RegisterGameTickListener(OnLockMaintenance, 2000);
         }
 
         private bool ToggleDialog(KeyCombination combination)
@@ -132,6 +145,22 @@ namespace WeatherController
                         }
                         return result;
                     }, out message, "Weather pattern applied to this region.", "No weather simulation is active for this region.");
+                    if (success && command.UseSelectionLock)
+                    {
+                        UpdateRegionLockState(fromPlayer, weather, state =>
+                        {
+                            if (command.SelectionLocked && !string.IsNullOrEmpty(command.Code))
+                            {
+                                state.PatternLocked = true;
+                                state.PatternCode = command.Code;
+                            }
+                            else
+                            {
+                                state.PatternLocked = false;
+                                state.PatternCode = null;
+                            }
+                        });
+                    }
                     break;
                 case WeatherControlAction.SetGlobalPattern:
                     weather.ReloadConfigs();
@@ -145,6 +174,19 @@ namespace WeatherController
                         return result;
                     });
                     message = success ? "Weather pattern applied to all loaded regions." : "Weather pattern could not be applied.";
+                    if (success && command.UseSelectionLock)
+                    {
+                        if (command.SelectionLocked && !string.IsNullOrEmpty(command.Code))
+                        {
+                            globalLock.PatternLocked = true;
+                            globalLock.PatternCode = command.Code;
+                        }
+                        else
+                        {
+                            globalLock.PatternLocked = false;
+                            globalLock.PatternCode = null;
+                        }
+                    }
                     break;
                 case WeatherControlAction.SetRegionEvent:
                     weather.ReloadConfigs();
@@ -162,6 +204,22 @@ namespace WeatherController
                         sim.TickEvery25ms(0.025f);
                         return true;
                     }, out message, "Weather event applied to this region.", "No weather simulation is active for this region.");
+                    if (success && command.UseSelectionLock)
+                    {
+                        UpdateRegionLockState(fromPlayer, weather, state =>
+                        {
+                            if (command.SelectionLocked && !string.IsNullOrEmpty(command.Code))
+                            {
+                                state.EventLocked = true;
+                                state.EventCode = command.Code;
+                            }
+                            else
+                            {
+                                state.EventLocked = false;
+                                state.EventCode = null;
+                            }
+                        });
+                    }
                     break;
                 case WeatherControlAction.SetGlobalEvent:
                     weather.ReloadConfigs();
@@ -180,6 +238,19 @@ namespace WeatherController
                         return true;
                     });
                     message = success ? "Weather event applied to all loaded regions." : "Weather event could not be applied.";
+                    if (success && command.UseSelectionLock)
+                    {
+                        if (command.SelectionLocked && !string.IsNullOrEmpty(command.Code))
+                        {
+                            globalLock.EventLocked = true;
+                            globalLock.EventCode = command.Code;
+                        }
+                        else
+                        {
+                            globalLock.EventLocked = false;
+                            globalLock.EventCode = null;
+                        }
+                    }
                     break;
                 case WeatherControlAction.SetGlobalWind:
                     weather.ReloadConfigs();
@@ -193,6 +264,19 @@ namespace WeatherController
                         return result;
                     });
                     message = success ? "Wind pattern applied to all loaded regions." : "Wind pattern could not be applied.";
+                    if (success && command.UseSelectionLock)
+                    {
+                        if (command.SelectionLocked && !string.IsNullOrEmpty(command.Code))
+                        {
+                            globalLock.WindLocked = true;
+                            globalLock.WindCode = command.Code;
+                        }
+                        else
+                        {
+                            globalLock.WindLocked = false;
+                            globalLock.WindCode = null;
+                        }
+                    }
                     break;
                 case WeatherControlAction.SetAutoChange:
                     if (command.UseAutoChange)
@@ -230,7 +314,25 @@ namespace WeatherController
                     success = true;
                     break;
                 case WeatherControlAction.SetTemporalStormMode:
+                    string normalizedMode = command.Code?.Trim().ToLowerInvariant();
                     success = TrySetTemporalStormMode(command.Code, out message);
+                    if (success && command.UseSelectionLock)
+                    {
+                        if (command.SelectionLocked)
+                        {
+                            stormLocked = true;
+                            stormLockMode = normalizedMode;
+                        }
+                        else
+                        {
+                            stormLocked = false;
+                            stormLockMode = null;
+                            if (!string.IsNullOrEmpty(normalizedMode))
+                            {
+                                defaultStormMode = normalizedMode;
+                            }
+                        }
+                    }
                     break;
                 case WeatherControlAction.EndTemporalStorm:
                     success = TryEndActiveStorm(out message);
@@ -338,6 +440,15 @@ namespace WeatherController
                     packet.CurrentEventCode = region.CurWeatherEvent?.config?.Code;
                     packet.CurrentEventAllowStop = region.CurWeatherEvent?.AllowStop;
                     packet.CurrentWindCode = region.CurWindPattern?.config?.Code;
+
+                    RegionLockState regionLock = GetRegionLockState(weather, region);
+                    packet.RegionPatternLocked = regionLock?.PatternLocked == true;
+                    packet.RegionEventLocked = regionLock?.EventLocked == true;
+                }
+                else
+                {
+                    packet.RegionPatternLocked = false;
+                    packet.RegionEventLocked = false;
                 }
 
                 packet.AutoChangeEnabled = weather.autoChangePatterns;
@@ -345,18 +456,140 @@ namespace WeatherController
                 packet.RainCloudDaysOffset = weather.RainCloudDaysOffset;
             }
 
+            packet.GlobalPatternLocked = globalLock.PatternLocked;
+            packet.GlobalEventLocked = globalLock.EventLocked;
+            packet.WindLocked = globalLock.WindLocked;
+
             SystemTemporalStability storms = sapi.ModLoader.GetModSystem<SystemTemporalStability>(false);
             if (storms != null)
             {
                 packet.TemporalStormModes = GetTemporalStormOptions(storms);
                 packet.CurrentTemporalStormMode = GetCurrentTemporalStormMode(storms);
                 packet.TemporalStormActive = storms.StormData?.nowStormActive == true;
+                packet.TemporalStormLocked = stormLocked;
             }
 
             bool hasPrivilege = player.HasPrivilege(Privilege.controlserver) || player.HasPrivilege(Privilege.root);
             packet.HasControlPrivilege = hasPrivilege;
 
             serverChannel.SendPacket(packet, player);
+        }
+
+        private void OnLockMaintenance(float dt)
+        {
+            if (sapi == null)
+            {
+                return;
+            }
+
+            WeatherSystemServer weather = sapi.ModLoader.GetModSystem<WeatherSystemServer>(false);
+            if (weather != null)
+            {
+                MaintainGlobalLocks(weather);
+                MaintainRegionLocks(weather);
+            }
+
+            MaintainStormLock();
+        }
+
+        private void MaintainGlobalLocks(WeatherSystemServer weather)
+        {
+            if (weather?.weatherSimByMapRegion == null)
+            {
+                return;
+            }
+
+            foreach (WeatherSimulationRegion region in weather.weatherSimByMapRegion.Values)
+            {
+                if (region == null)
+                {
+                    continue;
+                }
+
+                if (globalLock.PatternLocked && !CodesEqual(region.NewWePattern?.config?.Code ?? region.OldWePattern?.config?.Code, globalLock.PatternCode))
+                {
+                    region.SetWeatherPattern(globalLock.PatternCode, true);
+                }
+
+                if (globalLock.EventLocked)
+                {
+                    if (!CodesEqual(region.CurWeatherEvent?.config?.Code, globalLock.EventCode))
+                    {
+                        region.SetWeatherEvent(globalLock.EventCode, true);
+                    }
+                    if (region.CurWeatherEvent != null)
+                    {
+                        region.CurWeatherEvent.AllowStop = false;
+                    }
+                }
+                else if (region.CurWeatherEvent != null)
+                {
+                    region.CurWeatherEvent.AllowStop = true;
+                }
+
+                if (globalLock.WindLocked && !CodesEqual(region.CurWindPattern?.config?.Code, globalLock.WindCode))
+                {
+                    region.SetWindPattern(globalLock.WindCode, true);
+                }
+            }
+        }
+
+        private void MaintainRegionLocks(WeatherSystemServer weather)
+        {
+            if (regionLocks.Count == 0 || weather?.weatherSimByMapRegion == null)
+            {
+                return;
+            }
+
+            foreach (var entry in regionLocks.ToList())
+            {
+                if (!weather.weatherSimByMapRegion.TryGetValue(entry.Key, out WeatherSimulationRegion region) || region == null)
+                {
+                    continue;
+                }
+
+                RegionLockState state = entry.Value;
+                if (state.PatternLocked && !CodesEqual(region.NewWePattern?.config?.Code ?? region.OldWePattern?.config?.Code, state.PatternCode))
+                {
+                    region.SetWeatherPattern(state.PatternCode, true);
+                }
+
+                if (state.EventLocked)
+                {
+                    if (!CodesEqual(region.CurWeatherEvent?.config?.Code, state.EventCode))
+                    {
+                        region.SetWeatherEvent(state.EventCode, true);
+                    }
+                    if (region.CurWeatherEvent != null)
+                    {
+                        region.CurWeatherEvent.AllowStop = false;
+                    }
+                }
+                else if (region.CurWeatherEvent != null)
+                {
+                    region.CurWeatherEvent.AllowStop = true;
+                }
+            }
+        }
+
+        private void MaintainStormLock()
+        {
+            if (!stormLocked || string.IsNullOrEmpty(stormLockMode) || sapi == null)
+            {
+                return;
+            }
+
+            var storms = sapi.ModLoader.GetModSystem<SystemTemporalStability>(false);
+            if (storms == null)
+            {
+                return;
+            }
+
+            string currentMode = GetCurrentTemporalStormMode(storms);
+            if (!CodesEqual(currentMode, stormLockMode))
+            {
+                TrySetTemporalStormMode(stormLockMode, out _);
+            }
         }
 
         private WeatherOptionEntry[] GetTemporalStormOptions(SystemTemporalStability storms)
@@ -578,6 +811,69 @@ namespace WeatherController
                 default:
                     return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(code);
             }
+        }
+
+        private void UpdateRegionLockState(IServerPlayer player, WeatherSystemServer weather, Action<RegionLockState> updater)
+        {
+            WeatherSimulationRegion region = GetRegionSimulation(player, weather);
+            if (region == null)
+            {
+                return;
+            }
+
+            UpdateRegionLockState(weather, region, updater);
+        }
+
+        private void UpdateRegionLockState(WeatherSystemServer weather, WeatherSimulationRegion region, Action<RegionLockState> updater)
+        {
+            long key = weather.MapRegionIndex2D(region.regionX, region.regionZ);
+            if (!regionLocks.TryGetValue(key, out RegionLockState state))
+            {
+                state = new RegionLockState();
+                regionLocks[key] = state;
+            }
+
+            updater(state);
+
+            if (!state.PatternLocked && !state.EventLocked)
+            {
+                regionLocks.Remove(key);
+            }
+        }
+
+        private RegionLockState GetRegionLockState(WeatherSystemServer weather, WeatherSimulationRegion region)
+        {
+            if (region == null)
+            {
+                return null;
+            }
+
+            long key = weather.MapRegionIndex2D(region.regionX, region.regionZ);
+            regionLocks.TryGetValue(key, out RegionLockState state);
+            return state;
+        }
+
+        private static bool CodesEqual(string first, string second)
+        {
+            return string.Equals(first, second, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private class RegionLockState
+        {
+            public bool PatternLocked;
+            public string PatternCode;
+            public bool EventLocked;
+            public string EventCode;
+        }
+
+        private class GlobalLockState
+        {
+            public bool PatternLocked;
+            public string PatternCode;
+            public bool EventLocked;
+            public string EventCode;
+            public bool WindLocked;
+            public string WindCode;
         }
     }
 }
