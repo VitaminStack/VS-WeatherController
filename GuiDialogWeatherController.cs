@@ -1063,14 +1063,14 @@ namespace WeatherController
             private const double ContentHeight = 460;
             private const double ContentPadding = 16;
 
-            private static readonly string HelpText = string.Join("[br][br]", new[]
+            private static readonly string HelpText = string.Join("<br><br>", new[]
             {
-                "[b]Weather patterns[/b][br]- Region pattern applies only to the area around you.[br]- Global pattern changes the entire world.[br]- Lock options keep the chosen pattern active instead of letting vanilla weather take over again.",
-                "[b]Weather events[/b][br]- Use the dropdowns to trigger regional or global events.[br]- The \"Allow event to end automatically\" switch lets events finish on their own when enabled.[br]- Lock toggles hold the selected event in place until you release it.",
-                "[b]Wind pattern[/b][br]- Choose how wind behaves worldwide.[br]- Locking the wind prevents the simulation from shifting it back automatically.",
-                "[b]Temporal storms[/b][br]- Pick a storm intensity with the dropdown and optional lock.[br]- \"Summon storm\" starts the currently selected mode immediately.[br]- \"End active storm\" stops the storm in progress, even if it was started by the game.",
-                "[b]Auto-change patterns[/b][br]- Enable the switch to let the server rotate through weather patterns automatically.[br]- Click \"Apply\" to commit the chosen automation state.",
-                "[b]Precipitation override[/b][br]- Adjust the slider to add or remove rain and snow temporarily.[br]- Use \"Apply\" to set the override or \"Reset\" to hand control back to the vanilla system."
+                "<b>Weather patterns</b><br>- Region pattern applies only to the area around you.<br>- Global pattern changes the entire world.<br>- Lock options keep the chosen pattern active instead of letting vanilla weather take over again.",
+                "<b>Weather events</b><br>- Use the dropdowns to trigger regional or global events.<br>- The \"Allow event to end automatically\" switch lets events finish on their own when enabled.<br>- Lock toggles hold the selected event in place until you release it.",
+                "<b>Wind pattern</b><br>- Choose how wind behaves worldwide.<br>- Locking the wind prevents the simulation from shifting it back automatically.",
+                "<b>Temporal storms</b><br>- Pick a storm intensity with the dropdown and optional lock.<br>- \"Summon storm\" starts the currently selected mode immediately.<br>- \"End active storm\" stops the storm in progress, even if it was started by the game.",
+                "<b>Auto-change patterns</b><br>- Enable the switch to let the server rotate through weather patterns automatically.<br>- Click \"Apply\" to commit the chosen automation state.",
+                "<b>Precipitation override</b><br>- Adjust the slider to add or remove rain and snow temporarily.<br>- Use \"Apply\" to set the override or \"Reset\" to hand control back to the vanilla system."
             });
 
             public GuiDialogWeatherControllerHelp(ICoreClientAPI capi)
