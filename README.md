@@ -1,18 +1,26 @@
 # Weather Controller
 
-Der Weather Controller ist eine Beispiel-Mod für Vintage Story, die ein grafisches Bedienfeld zum Verwalten des Wetters bereitstellt.
+Weather Controller is a sample mod for Vintage Story that provides an in-game GUI for managing weather conditions.
 
-## Funktionen
-- Öffne die Wettersteuerung mit der Standard-Hotkey-Belegung `O`.
-- Wähle Wettermuster, Ereignisse und Windprofile aus und setze sie entweder für die aktuelle Region oder für alle geladenen Regionen.
-- Konfiguriere temporale Stürme, indem du ihre Häufigkeit (oder "Aus") direkt im Dialog auswählst.
-- Schalte das automatische Wechseln der Wetterlagen ein oder aus.
-- Lege eine Niederschlags-Intensität fest oder entferne den Override wieder.
+## Join the Community
 
-Nur Spieler:innen mit dem Server-Privileg `controlserver` (oder `root`) können Änderungen anwenden.
+Stay in the loop with updates, share feedback, and report bugs directly on our Discord server:
+
+👉 **[Weather Controller Discord Community](https://discord.gg/AnGTgqHA)** 👈
+
+Hop in to discuss new releases, suggest improvements, and collaborate with other players.
+
+## Features
+- Open the weather controller with the default hotkey binding `O`.
+- Select weather patterns, events, and wind profiles and apply them to the current region or all loaded regions.
+- Configure temporal storms by picking their desired frequency (or turning them off entirely) directly from the dialog.
+- Toggle automatic weather cycling on or off.
+- Override the precipitation intensity or clear a previously set override.
+
+Only players with the `controlserver` (or `root`) server privilege can apply changes.
 
 ## Installation
 
-1. Baue das Projekt mit Visual Studio oder `msbuild WeatherController.csproj`.
-2. Kopiere die erzeugte `WeatherController.dll` zusammen mit der beiliegenden `modinfo.json` in einen neuen Ordner unterhalb von `%APPDATA%/VintagestoryData/Mods`.
-3. Starte Vintage Story neu, um die Mod zu laden.
+1. Build the project with Visual Studio or run `msbuild WeatherController.csproj`.
+2. Copy the generated `WeatherController.dll` together with the included `modinfo.json` into a new folder inside `%APPDATA%/VintagestoryData/Mods`.
+3. Restart Vintage Story to load the mod.
