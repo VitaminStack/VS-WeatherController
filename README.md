@@ -6,7 +6,6 @@ Weather Controller is a sample mod for Vintage Story that provides an in-game GU
 
 Stay in the loop with updates, share feedback, and report bugs directly on our Discord server:
 
- **[Weather Controller Discord Community](https://discord.gg/AnGTgqHA)** 
 
 Hop in to discuss new releases, suggest improvements, and collaborate with other players.
 
